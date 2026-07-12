@@ -6,13 +6,14 @@ const findByEmail = async (email) => {
 };
 
 const findById = async (id) => {
-    const [users] = await db.execute("SELECT id, name, email, created_at FROM users WHERE id = ?", [id]);
+    const [users] = await db.execute("SELECT id, name, email, created_at, billing_status, trial_start_at, trial_end_at, paid_until, eligible_for_deletion FROM users WHERE id = ?", [id]);
     return users.length > 0 ? users[0] : null;
 };
 
 const create = async (name, email, passwordHash) => {
     const [result] = await db.execute(
-        "INSERT INTO users(name, email, password) VALUES (?, ?, ?)",
+        `INSERT INTO users(name, email, password, trial_start_at, trial_end_at, billing_status) 
+         VALUES (?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 24 HOUR), 'active')`,
         [name, email, passwordHash]
     );
     return result.insertId;

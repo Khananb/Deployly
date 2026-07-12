@@ -5,6 +5,8 @@ import Dashboard from './components/Dashboard'
 import Websites from './components/Websites'
 import Domains from './components/Domains'
 import Profile from './components/Profile'
+import BillingHistory from './components/BillingHistory'
+import Support from './components/Support'
 
 function App() {
   const [page, setPage] = useState('login')
@@ -38,6 +40,8 @@ function App() {
       case 'dashboard': return <Dashboard token={token} />
       case 'websites': return <Websites token={token} />
       case 'domains': return <Domains token={token} />
+      case 'billing': return <BillingHistory token={token} />
+      case 'support': return <Support />
       case 'profile': return <Profile token={token} user={user} onLogout={handleLogout} />
       default: return <Dashboard token={token} />
     }
@@ -69,6 +73,18 @@ function App() {
           onClick={() => setPage('domains')}
         >
           Domains
+        </div>
+        <div 
+          className={`nav-item ${page === 'billing' ? 'active' : ''}`}
+          onClick={() => setPage('billing')}
+        >
+          Billing History
+        </div>
+        <div 
+          className={`nav-item ${page === 'support' ? 'active' : ''}`}
+          onClick={() => setPage('support')}
+        >
+          Support
         </div>
         <div 
           className={`nav-item ${page === 'profile' ? 'active' : ''}`}

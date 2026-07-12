@@ -86,7 +86,18 @@ async function verifyEnvironment() {
     }
 
     // 5. Environment Variables
-    const requiredEnv = ['JWT_SECRET', 'PORT', 'BASE_URL'];
+    const requiredEnv = [
+    "PORT",
+    "DB_HOST",
+    "DB_USER",
+    "DB_PASSWORD",
+    "DB_NAME",
+    "JWT_SECRET",
+    "BASE_URL",
+    "RAZORPAY_KEY_ID",
+    "RAZORPAY_KEY_SECRET",
+    "RAZORPAY_WEBHOOK_SECRET"
+];
     for (const env of requiredEnv) {
         if (process.env[env]) {
             logResult(`ENV: ${env}`, true, 'Configured');

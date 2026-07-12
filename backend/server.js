@@ -18,7 +18,9 @@ const websiteRoutes = require("./routes/websiteRoutes");
 const databaseRoutes = require("./routes/databaseRoutes");
 const deploymentRoutes = require("./routes/deploymentRoutes");
 const healthRoutes = require("./routes/healthRoutes");
+const billingRoutes = require("./routes/billingRoutes");
 const errorMiddleware = require("./middleware/errorMiddleware");
+const runBillingCron = require("./cron/billingCron");
 
 const app = express();
 
@@ -48,6 +50,7 @@ app.use("/api/domains", domainRoutes);
 app.use("/api/websites", websiteRoutes);
 app.use("/api/databases", databaseRoutes);
 app.use("/api/deployments", deploymentRoutes);
+app.use("/api/billing", billingRoutes);
 app.get("/", (req, res) => {
     res.json({
         name: "Deployly API",
@@ -64,6 +67,9 @@ app.use("/sites", express.static(path.join(__dirname, "../storage/sites"), {
 
 // Error handling middleware
 app.use(errorMiddleware);
+
+// Start Cron Jobs
+runBillingCron();
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {

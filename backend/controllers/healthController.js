@@ -15,9 +15,18 @@ const getHealthStatus = async (req, res) => {
     // Check Storage status
     let storageStatus = "ok";
     try {
-        const testFile = path.join(__dirname, "../../../storage/logs", ".health_test");
-        fs.writeFileSync(testFile, "test");
-        fs.unlinkSync(testFile);
+        const directories = ["logs", "uploads", "sites"];
+        for (const dir of directories) {
+            const dirPath = path.join(__dirname, "../../storage", dir);
+            // Check if directory exists
+            if (!fs.existsSync(dirPath)) {
+                throw new Error(`Directory does not exist: ${dirPath}`);
+            }
+            // Check if writable by creating a test file
+            const testFile = path.join(dirPath, ".health_test");
+            fs.writeFileSync(testFile, "test");
+            fs.unlinkSync(testFile);
+        }
     } catch (err) {
         storageStatus = "error";
     }
