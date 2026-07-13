@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { CheckCircle } from 'lucide-react';
 
 export default function Pricing() {
   return (
@@ -21,9 +22,7 @@ export default function Pricing() {
           <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 2rem 0', textAlign: 'left', width: '100%' }}>
             {['1 Website', '1 Domain', '1.5 GB SSD Storage', '1 MySQL Database', '1 Node.js App', '1 PHP Website', 'Free SSL', 'File Manager', 'Basic File Upload', 'Restart App', '1000 GB Monthly Bandwidth', 'Email Support', '99.9% Uptime'].map((item, i) => (
               <li key={i} style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.95rem' }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
+                <CheckCircle size={16} color="var(--success)" />
                 {item}
               </li>
             ))}

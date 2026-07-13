@@ -6,7 +6,6 @@ import Register from './pages/Register'
 import DashboardLayout from './layouts/DashboardLayout'
 import Dashboard from './pages/Dashboard'
 import Websites from './pages/Websites'
-import Domains from './pages/Domains'
 import Profile from './pages/Profile'
 import BillingHistory from './pages/BillingHistory'
 import Support from './pages/Support'
@@ -55,7 +54,6 @@ function App() {
         <Route path="/dashboard" element={<DashboardLayout token={token} user={user} onLogout={handleLogout} />}>
           <Route index element={<Dashboard token={token} />} />
           <Route path="websites" element={<Websites token={token} />} />
-          <Route path="domains" element={<Domains token={token} />} />
           <Route path="billing" element={<BillingHistory token={token} />} />
           <Route path="support" element={<Support />} />
           <Route path="profile" element={<Profile token={token} user={user} onLogout={handleLogout} />} />

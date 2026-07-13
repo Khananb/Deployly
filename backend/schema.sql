@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS websites (
     domain VARCHAR(255) NOT NULL UNIQUE,
     type ENUM('node', 'static', 'php') NOT NULL,
     status ENUM('pending', 'uploaded', 'deploying', 'running', 'failed', 'ready') NOT NULL DEFAULT 'pending',
+    live_url VARCHAR(255) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -60,7 +61,13 @@ CREATE TABLE IF NOT EXISTS deployments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     website_id INT NOT NULL,
     filename VARCHAR(255) NOT NULL,
-    status ENUM('pending', 'uploaded', 'deploying', 'running', 'failed', 'ready') NOT NULL DEFAULT 'pending',
+    status ENUM('pending', 'uploaded', 'validating', 'deploying', 'running', 'failed', 'ready', 'deployed') NOT NULL DEFAULT 'pending',
+    upload_path VARCHAR(255) NULL,
+    extract_path VARCHAR(255) NULL,
+    deploy_path VARCHAR(255) NULL,
+    project_type VARCHAR(50) NULL,
+    framework VARCHAR(50) NULL,
+    detected_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (website_id) REFERENCES websites(id) ON DELETE CASCADE
@@ -80,11 +87,16 @@ CREATE TABLE IF NOT EXISTS deployment_logs (
 CREATE TABLE IF NOT EXISTS domains (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
+    website_id INT NOT NULL,
     domain VARCHAR(255) NOT NULL UNIQUE,
     status ENUM('pending', 'active', 'failed') NOT NULL DEFAULT 'pending',
+    dns_status ENUM('pending', 'verified', 'failed') NOT NULL DEFAULT 'pending',
+    ssl_status ENUM('none', 'pending', 'issued', 'failed') NOT NULL DEFAULT 'none',
+    ssl_expires_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (website_id) REFERENCES websites(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS user_databases (

@@ -32,6 +32,22 @@ const updateDeploymentStatus = async (deploymentId, status) => {
     return result.affectedRows > 0;
 };
 
+const updateDeploymentPaths = async (deploymentId, uploadPath, extractPath) => {
+    const [result] = await db.execute(
+        "UPDATE deployments SET upload_path = ?, extract_path = ? WHERE id = ?",
+        [uploadPath, extractPath, deploymentId]
+    );
+    return result.affectedRows > 0;
+};
+
+const updateDeploymentMetadata = async (deploymentId, projectType, framework) => {
+    const [result] = await db.execute(
+        "UPDATE deployments SET project_type = ?, framework = ?, detected_at = NOW() WHERE id = ?",
+        [projectType, framework, deploymentId]
+    );
+    return result.affectedRows > 0;
+};
+
 const addDeploymentLog = async (deploymentId, action, status, message = "") => {
     const [result] = await db.execute(
         "INSERT INTO deployment_logs (deployment_id, action, status, message, created_at) VALUES (?, ?, ?, ?, NOW())",
@@ -61,6 +77,8 @@ module.exports = {
     getDeploymentById,
     getActiveDeployments,
     updateDeploymentStatus,
+    updateDeploymentPaths,
+    updateDeploymentMetadata,
     addDeploymentLog,
     getDeployments,
     getDeploymentLogs

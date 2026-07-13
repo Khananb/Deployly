@@ -13,18 +13,30 @@ const createWebsite = async (userId, name, domain, type) => {
 };
 
 const getWebsites = async (userId) => {
-    const [rows] = await db.execute(
-        "SELECT id, name, domain, type, status, created_at FROM websites WHERE user_id = ?",
-        [userId]
-    );
+    const [rows] = await db.execute(`
+        SELECT 
+            w.id, w.name, w.domain, w.type, w.status, w.created_at, w.live_url,
+            (SELECT project_type FROM deployments d WHERE d.website_id = w.id ORDER BY d.created_at DESC LIMIT 1) as project_type,
+            (SELECT framework FROM deployments d WHERE d.website_id = w.id ORDER BY d.created_at DESC LIMIT 1) as framework,
+            (SELECT deploy_path FROM deployments d WHERE d.website_id = w.id AND d.status = 'deployed' ORDER BY d.updated_at DESC LIMIT 1) as deploy_path,
+            (SELECT updated_at FROM deployments d WHERE d.website_id = w.id AND d.status = 'deployed' ORDER BY d.updated_at DESC LIMIT 1) as last_deployed_at
+        FROM websites w 
+        WHERE w.user_id = ?
+    `, [userId]);
     return rows;
 };
 
 const getWebsiteById = async (userId, websiteId) => {
-    const [rows] = await db.execute(
-        "SELECT id, name, domain, type, status, created_at FROM websites WHERE id = ? AND user_id = ?",
-        [websiteId, userId]
-    );
+    const [rows] = await db.execute(`
+        SELECT 
+            w.id, w.name, w.domain, w.type, w.status, w.created_at, w.live_url, w.allocated_port,
+            (SELECT project_type FROM deployments d WHERE d.website_id = w.id ORDER BY d.created_at DESC LIMIT 1) as project_type,
+            (SELECT framework FROM deployments d WHERE d.website_id = w.id ORDER BY d.created_at DESC LIMIT 1) as framework,
+            (SELECT deploy_path FROM deployments d WHERE d.website_id = w.id AND d.status = 'deployed' ORDER BY d.updated_at DESC LIMIT 1) as deploy_path,
+            (SELECT updated_at FROM deployments d WHERE d.website_id = w.id AND d.status = 'deployed' ORDER BY d.updated_at DESC LIMIT 1) as last_deployed_at
+        FROM websites w 
+        WHERE w.id = ? AND w.user_id = ?
+    `, [websiteId, userId]);
     if (rows.length === 0) throw new Error("Website not found or not authorized");
     return rows[0];
 };
@@ -43,7 +55,11 @@ const updateWebsiteDeploymentData = async (websiteId, data) => {
     const fields = [];
     const values = [];
     if (data.status !== undefined) { fields.push('status = ?'); values.push(data.status); }
+    if (data.type !== undefined) { fields.push('type = ?'); values.push(data.type); }
+    if (data.live_url !== undefined) { fields.push('live_url = ?'); values.push(data.live_url); }
     if (data.pm2_process !== undefined) { fields.push('pm2_process = ?'); values.push(data.pm2_process); }
+    if (data.allocated_port !== undefined) { fields.push('allocated_port = ?'); values.push(data.allocated_port); }
+    if (data.running_since !== undefined) { fields.push('running_since = ?'); values.push(data.running_since); }
     if (data.last_deployed_at !== undefined) { fields.push('last_deployed_at = ?'); values.push(data.last_deployed_at); }
     if (data.started_at !== undefined) { fields.push('started_at = ?'); values.push(data.started_at); }
     if (data.last_error !== undefined) { fields.push('last_error = ?'); values.push(data.last_error); }

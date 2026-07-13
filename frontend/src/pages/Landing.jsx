@@ -1,7 +1,6 @@
 import React from 'react';
 import LandingNav from '../components/landing/LandingNav';
 import Hero from '../components/landing/Hero';
-import TrustedBy from '../components/landing/TrustedBy';
 import Features from '../components/landing/Features';
 import WhyDeployly from '../components/landing/WhyDeployly';
 import Pricing from '../components/landing/Pricing';
@@ -14,7 +13,6 @@ export default function Landing() {
     <div className="landing-container">
       <LandingNav />
       <Hero />
-      <TrustedBy />
       <Features />
       <WhyDeployly />
       <Pricing />
