@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { fetchApi } from '../utils/api';
+import { Link, useNavigate } from 'react-router-dom';
 
-export default function Register({ setPage }) {
+export default function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,7 +20,7 @@ export default function Register({ setPage }) {
         method: 'POST',
         body: JSON.stringify({ name, email, password })
       });
-      setPage('login');
+      navigate('/login');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -49,7 +51,7 @@ export default function Register({ setPage }) {
           </button>
         </form>
         <p className="text-center mt-4" style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-          Already have an account? <span style={{ color: 'var(--accent)', cursor: 'pointer' }} onClick={() => setPage('login')}>Sign In</span>
+          Already have an account? <Link to="/login" style={{ color: 'var(--accent)', textDecoration: 'none' }}>Sign In</Link>
         </p>
       </div>
     </div>

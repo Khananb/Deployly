@@ -19,6 +19,7 @@ const databaseRoutes = require("./routes/databaseRoutes");
 const deploymentRoutes = require("./routes/deploymentRoutes");
 const healthRoutes = require("./routes/healthRoutes");
 const billingRoutes = require("./routes/billingRoutes");
+const planRoutes = require("./routes/planRoutes");
 const errorMiddleware = require("./middleware/errorMiddleware");
 const runBillingCron = require("./cron/billingCron");
 
@@ -51,6 +52,7 @@ app.use("/api/websites", websiteRoutes);
 app.use("/api/databases", databaseRoutes);
 app.use("/api/deployments", deploymentRoutes);
 app.use("/api/billing", billingRoutes);
+app.use("/api/plans", planRoutes);
 app.get("/", (req, res) => {
     res.json({
         name: "Deployly API",

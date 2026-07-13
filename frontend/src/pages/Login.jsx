@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { fetchApi } from '../utils/api';
+import { Link } from 'react-router-dom';
 
-export default function Login({ setPage, onLogin }) {
+export default function Login({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -44,7 +45,7 @@ export default function Login({ setPage, onLogin }) {
           </button>
         </form>
         <p className="text-center mt-4" style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-          Don't have an account? <span style={{ color: 'var(--accent)', cursor: 'pointer' }} onClick={() => setPage('register')}>Register</span>
+          Don't have an account? <Link to="/register" style={{ color: 'var(--accent)', textDecoration: 'none' }}>Register</Link>
         </p>
       </div>
     </div>

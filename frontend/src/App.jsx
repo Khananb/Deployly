@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react'
-import Login from './components/Login'
-import Register from './components/Register'
-import Dashboard from './components/Dashboard'
-import Websites from './components/Websites'
-import Domains from './components/Domains'
-import Profile from './components/Profile'
-import BillingHistory from './components/BillingHistory'
-import Support from './components/Support'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import Landing from './pages/Landing'
+import Login from './pages/Login'
+import Register from './pages/Register'
+import DashboardLayout from './layouts/DashboardLayout'
+import Dashboard from './pages/Dashboard'
+import Websites from './pages/Websites'
+import Domains from './pages/Domains'
+import Profile from './pages/Profile'
+import BillingHistory from './pages/BillingHistory'
+import Support from './pages/Support'
 
 function App() {
-  const [page, setPage] = useState('login')
   const [token, setToken] = useState(localStorage.getItem('token') || null)
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')) || null)
 
@@ -20,14 +22,12 @@ function App() {
     } else {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      setPage('login')
     }
   }, [token, user])
 
   const handleLogin = (newToken, newUser) => {
     setToken(newToken)
     setUser(newUser)
-    setPage('dashboard')
   }
 
   const handleLogout = () => {
@@ -35,68 +35,36 @@ function App() {
     setUser(null)
   }
 
-  const renderContent = () => {
-    switch (page) {
-      case 'dashboard': return <Dashboard token={token} />
-      case 'websites': return <Websites token={token} />
-      case 'domains': return <Domains token={token} />
-      case 'billing': return <BillingHistory token={token} />
-      case 'support': return <Support />
-      case 'profile': return <Profile token={token} user={user} onLogout={handleLogout} />
-      default: return <Dashboard token={token} />
-    }
-  }
-
-  if (!token) {
-    if (page === 'register') return <Register setPage={setPage} />
-    return <Login setPage={setPage} onLogin={handleLogin} />
-  }
-
   return (
-    <div className="app-container">
-      <nav className="sidebar">
-        <h2 className="title-glow" style={{ marginBottom: '2rem', paddingLeft: '1rem' }}>Deployly</h2>
-        <div 
-          className={`nav-item ${page === 'dashboard' ? 'active' : ''}`}
-          onClick={() => setPage('dashboard')}
-        >
-          Dashboard
-        </div>
-        <div 
-          className={`nav-item ${page === 'websites' ? 'active' : ''}`}
-          onClick={() => setPage('websites')}
-        >
-          Websites
-        </div>
-        <div 
-          className={`nav-item ${page === 'domains' ? 'active' : ''}`}
-          onClick={() => setPage('domains')}
-        >
-          Domains
-        </div>
-        <div 
-          className={`nav-item ${page === 'billing' ? 'active' : ''}`}
-          onClick={() => setPage('billing')}
-        >
-          Billing History
-        </div>
-        <div 
-          className={`nav-item ${page === 'support' ? 'active' : ''}`}
-          onClick={() => setPage('support')}
-        >
-          Support
-        </div>
-        <div 
-          className={`nav-item ${page === 'profile' ? 'active' : ''}`}
-          onClick={() => setPage('profile')}
-        >
-          Profile
-        </div>
-      </nav>
-      <main className="main-content">
-        {renderContent()}
-      </main>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/" element={<Landing />} />
+        
+        {/* Auth Routes */}
+        <Route 
+          path="/login" 
+          element={token ? <Navigate to="/dashboard" replace /> : <Login onLogin={handleLogin} />} 
+        />
+        <Route 
+          path="/register" 
+          element={token ? <Navigate to="/dashboard" replace /> : <Register />} 
+        />
+
+        {/* Protected Dashboard Routes */}
+        <Route path="/dashboard" element={<DashboardLayout token={token} user={user} onLogout={handleLogout} />}>
+          <Route index element={<Dashboard token={token} />} />
+          <Route path="websites" element={<Websites token={token} />} />
+          <Route path="domains" element={<Domains token={token} />} />
+          <Route path="billing" element={<BillingHistory token={token} />} />
+          <Route path="support" element={<Support />} />
+          <Route path="profile" element={<Profile token={token} user={user} onLogout={handleLogout} />} />
+        </Route>
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 

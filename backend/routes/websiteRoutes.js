@@ -4,9 +4,11 @@ const upload = require("../utils/multerConfig");
 const { createWebsite, getWebsites, getWebsiteById, updateWebsite, deleteWebsite, restartWebsite, stopWebsite } = require("../controllers/websiteController");
 const { uploadWebsiteZip, deployWebsite, getDeployments } = require("../controllers/deploymentController");
 
+const { enforceLimit } = require("../middleware/planEnforcer");
+
 const router = express.Router();
 
-router.post("/", verifyToken, createWebsite);
+router.post("/", verifyToken, enforceLimit('website'), createWebsite);
 router.get("/", verifyToken, getWebsites);
 router.get("/:id", verifyToken, getWebsiteById);
 router.put("/:id", verifyToken, updateWebsite);

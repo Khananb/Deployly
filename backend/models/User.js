@@ -10,8 +10,9 @@ const findById = async (id) => {
     return users.length > 0 ? users[0] : null;
 };
 
-const create = async (name, email, passwordHash) => {
-    const [result] = await db.execute(
+const create = async (name, email, passwordHash, connection = null) => {
+    const execDb = connection || db;
+    const [result] = await execDb.execute(
         `INSERT INTO users(name, email, password, trial_start_at, trial_end_at, billing_status) 
          VALUES (?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 24 HOUR), 'active')`,
         [name, email, passwordHash]
