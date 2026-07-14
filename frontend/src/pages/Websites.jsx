@@ -9,7 +9,6 @@ export default function Websites({ token }) {
   const [loading, setLoading] = useState(true);
   const [newWebsiteName, setNewWebsiteName] = useState('');
   const [newWebsiteDomain, setNewWebsiteDomain] = useState('');
-  const [newWebsiteType, setNewWebsiteType] = useState('node');
   const [adding, setAdding] = useState(false);
   const [selectedWebsiteId, setSelectedWebsiteId] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -39,11 +38,10 @@ export default function Websites({ token }) {
     try {
       await fetchApi('/websites', {
         method: 'POST',
-        body: JSON.stringify({ name: newWebsiteName, domain: newWebsiteDomain, type: newWebsiteType })
+        body: JSON.stringify({ name: newWebsiteName, domain: newWebsiteDomain, type: 'unknown' })
       }, token);
       setNewWebsiteName('');
       setNewWebsiteDomain('');
-      setNewWebsiteType('node');
       setShowCreate(false);
       loadWebsites();
       addToast('Project created successfully!', 'success');
@@ -104,13 +102,6 @@ export default function Websites({ token }) {
                 <div className="form-group" style={{ margin: 0, flex: 1, minWidth: '200px' }}>
                     <label>Domain</label>
                     <input type="text" className="input-field" placeholder="example.com" value={newWebsiteDomain} onChange={e => setNewWebsiteDomain(e.target.value)} required />
-                </div>
-                <div className="form-group" style={{ margin: 0, flex: 1, minWidth: '200px' }}>
-                    <label>Engine</label>
-                    <select className="input-field" value={newWebsiteType} onChange={e => setNewWebsiteType(e.target.value)}>
-                        <option value="node">Node.js App</option>
-                        <option value="php">PHP App</option>
-                    </select>
                 </div>
                 <button type="submit" disabled={adding} className="btn" style={{ minWidth: '150px' }}>
                     {adding ? <span className="spinner spinner-sm"></span> : 'Deploy Now'}

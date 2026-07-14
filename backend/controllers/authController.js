@@ -15,17 +15,24 @@ const loginSchema = Joi.object({
 });
 
 const register = asyncHandler(async (req, res) => {
-    const { error, value } = registerSchema.validate(req.body);
-    if (error) {
-        const err = new Error(error.details[0].message);
-        err.statusCode = 400;
-        throw err;
+    try {
+        const { error, value } = registerSchema.validate(req.body);
+        if (error) {
+            const err = new Error(error.details[0].message);
+            err.statusCode = 400;
+            throw err;
+        }
+
+        const { name, email, password } = value;
+        await authService.registerUser(name, email, password);
+
+        sendSuccess(res, {}, "User registered successfully", 201);
+    } catch (error) {
+        console.error("REGISTER ERROR:", error);
+        console.error(error.message);
+        console.error(error.stack);
+        throw error;
     }
-
-    const { name, email, password } = value;
-    await authService.registerUser(name, email, password);
-
-    sendSuccess(res, {}, "User registered successfully", 201);
 });
 
 const login = asyncHandler(async (req, res) => {

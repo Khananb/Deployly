@@ -6,7 +6,7 @@ const { sendSuccess } = require("../utils/apiResponse");
 const websiteSchema = Joi.object({
     name: Joi.string().required(),
     domain: Joi.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$/).required(),
-    type: Joi.string().valid('node', 'php').required()
+    type: Joi.string().valid('node', 'php', 'static', 'unknown').default('unknown')
 });
 
 const updateWebsiteSchema = Joi.object({

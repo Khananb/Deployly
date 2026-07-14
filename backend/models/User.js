@@ -1,8 +1,22 @@
 const db = require("../config/db");
 
 const findByEmail = async (email) => {
-    const [users] = await db.execute("SELECT * FROM users WHERE email = ?", [email]);
-    return users.length > 0 ? users[0] : null;
+    try {
+        const [users] = await db.execute("SELECT * FROM users WHERE email = ?", [email]);
+        return users.length > 0 ? users[0] : null;
+    } catch (error) {
+        console.error("DATABASE ERROR");
+        console.error(error);
+        console.error(error.message);
+        console.error(error.code);
+        console.error(error.errno);
+        console.error(error.sqlMessage);
+        console.error(error.stack);
+        if (error.errors) {
+            console.error("INNER ERRORS:", error.errors);
+        }
+        throw error;
+    }
 };
 
 const findById = async (id) => {

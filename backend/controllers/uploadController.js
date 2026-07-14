@@ -86,11 +86,41 @@ const uploadWebsiteZip = asyncHandler(async (req, res) => {
         await deploymentService.updateDeploymentPaths(deploymentId, uploadPath, extractPath);
         await deploymentService.addDeploymentLog(deploymentId, "Deployment", "ready", "Ready for deployment");
 
+        let finalStatus = 'ready';
+        let deploymentUrl = null;
+
+        // Auto-Deploy if engine is detected
+        if (detectionResult.projectType !== 'unknown') {
+            await deploymentService.addDeploymentLog(deploymentId, "Auto-Deploy", "pending", `Auto-deploying as ${detectionResult.projectType}`);
+            try {
+                let autoDeployResult;
+                if (detectionResult.projectType === 'node') {
+                    const NodeDeploymentService = require("../services/nodeDeploymentService");
+                    autoDeployResult = await NodeDeploymentService.deployNodeWebsite(userId, websiteId, deploymentId, extractPath);
+                } else if (detectionResult.projectType === 'static') {
+                    const StaticDeploymentService = require("../services/staticDeploymentService");
+                    autoDeployResult = await StaticDeploymentService.deployStaticWebsite(userId, websiteId, deploymentId, extractPath);
+                }
+
+                if (autoDeployResult && autoDeployResult.success) {
+                    finalStatus = autoDeployResult.deploymentStatus;
+                    deploymentUrl = autoDeployResult.deploymentUrl;
+                    const domainService = require("../services/domainService");
+                    domainService.processDomainsForWebsite(userId, websiteId, deploymentId).catch(console.error);
+                }
+            } catch (deployErr) {
+                await deploymentService.updateDeploymentStatus(deploymentId, 'failed');
+                await deploymentService.addDeploymentLog(deploymentId, "Auto-Deploy", "failed", deployErr.message);
+                throw deployErr;
+            }
+        }
+
         sendSuccess(res, {
             websiteId,
             extractPath,
             deploymentId,
-            status: 'ready',
+            status: finalStatus,
+            deploymentUrl,
             detection: detectionResult
         }, "Upload and extraction process completed successfully");
     } catch (err) {
