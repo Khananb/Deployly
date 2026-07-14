@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { fetchApi } from '../utils/api';
 import WebsiteDetails from './WebsiteDetails';
 import { useToast } from '../context/ToastContext';
-import { Search, Filter, Plus, Globe, ExternalLink, Settings, Trash2 } from 'lucide-react';
+import { Search, Filter, Plus, Globe, ExternalLink, Settings, GitBranch } from 'lucide-react';
 
 export default function Websites({ token }) {
   const [websites, setWebsites] = useState([]);
@@ -15,7 +15,7 @@ export default function Websites({ token }) {
   const [showCreate, setShowCreate] = useState(false);
   const { addToast } = useToast();
 
-  const loadWebsites = async () => {
+  const loadWebsites = React.useCallback(async () => {
     try {
       const data = await fetchApi('/websites', {}, token);
       setWebsites(data.data.websites || []);
@@ -24,13 +24,13 @@ export default function Websites({ token }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, addToast]);
 
   useEffect(() => {
     if (!selectedWebsiteId) {
       loadWebsites();
     }
-  }, [token, selectedWebsiteId]);
+  }, [selectedWebsiteId, loadWebsites]);
 
   const handleAdd = async (e) => {
     e.preventDefault();
@@ -54,17 +54,6 @@ export default function Websites({ token }) {
     }
   };
 
-  const handleDelete = async (id, e) => {
-    e.stopPropagation();
-    if (!window.confirm('Are you sure? This action cannot be undone.')) return;
-    try {
-      await fetchApi(`/websites/${id}`, { method: 'DELETE' }, token);
-      loadWebsites();
-      addToast('Project deleted', 'success');
-    } catch (err) {
-      addToast(err.message, 'error');
-    }
-  };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -133,7 +122,7 @@ export default function Websites({ token }) {
       {websites.length === 0 && !showCreate ? (
         <div className="vercel-card flex flex-col items-center justify-center" style={{ padding: '6rem 2rem', textAlign: 'center', borderStyle: 'dashed' }}>
           <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '1.5rem', borderRadius: '50%', marginBottom: '1.5rem' }}>
-              <Github size={48} color="var(--accent)" />
+              <GitBranch size={48} color="var(--accent)" />
           </div>
           <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--text-primary)' }}>Let's build something new.</h2>
           <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', maxWidth: '400px' }}>You haven't deployed any projects yet. Create a new project to get started with your first deployment.</p>

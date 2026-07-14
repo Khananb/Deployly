@@ -72,7 +72,55 @@ const loginUser = async (email, password) => {
     };
 };
 
+const providerLogin = async (provider, providerId, email, name, avatar, verifiedEmail) => {
+    let user = await User.findByEmail(email);
+
+    if (user) {
+        // Link provider if not already linked
+        if (user.provider !== provider || user.provider_id !== providerId) {
+            await User.linkProvider(user.id, provider, providerId, avatar, verifiedEmail);
+        }
+    } else {
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            const founderPlan = await Plan.getFounderPlan(connection, true);
+            if (!founderPlan || founderPlan.status === 'OUT_OF_STOCK') {
+                const error = new Error("Founder Edition is currently sold out.");
+                error.statusCode = 403;
+                throw error;
+            }
+
+            const userId = await User.createWithProvider(name, email, provider, providerId, avatar, verifiedEmail, connection);
+            await Subscription.createSubscription(userId, founderPlan.id, connection);
+            await Plan.incrementUsedSlots(founderPlan.id, connection);
+
+            await connection.commit();
+            
+            user = await User.findById(userId);
+        } catch (err) {
+            await connection.rollback();
+            throw err;
+        } finally {
+            connection.release();
+        }
+    }
+
+    const token = jwt.sign(
+        { id: user.id, email: user.email },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+    );
+
+    return {
+        token,
+        user: { id: user.id, name: user.name, email: user.email }
+    };
+};
+
 module.exports = {
     registerUser,
-    loginUser
+    loginUser,
+    providerLogin
 };

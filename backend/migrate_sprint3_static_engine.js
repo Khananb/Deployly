@@ -1,11 +1,10 @@
 require("dotenv").config();
-const mysql = require("mysql2/promise");
-const dbConfig = require("./config/dbConfig");
+const db = require("./config/db");
 
 async function migrate() {
     let connection;
     try {
-        connection = await mysql.createConnection(dbConfig);
+        connection = await db.getConnection();
         console.log("Connected to MySQL.");
 
         console.log("Updating websites table...");
@@ -21,7 +20,7 @@ async function migrate() {
         console.error("Migration failed:", err);
     } finally {
         if (connection) {
-            await connection.end();
+            connection.release();
         }
         process.exit();
     }

@@ -1,8 +1,23 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle } from 'lucide-react';
+import { fetchApi } from '../../utils/api';
 
 export default function Pricing() {
+  const [stockStatus, setStockStatus] = useState('ACTIVE');
+
+  useEffect(() => {
+    fetchApi('/plans/founder')
+      .then(res => {
+        if (res.data && res.data.status) {
+          setStockStatus(res.data.status);
+        }
+      })
+      .catch(err => console.error("Failed to fetch plan stock:", err));
+  }, []);
+
+  const isSoldOut = stockStatus === 'OUT_OF_STOCK';
+
   return (
     <section id="pricing" className="pricing-section landing-section fade-up delay-100">
       <h2 className="text-center text-gradient" style={{ fontSize: '3rem', marginBottom: '3rem' }}>Simple Pricing</h2>
@@ -16,7 +31,7 @@ export default function Pricing() {
             ₹79<span style={{ fontSize: '1rem', color: 'var(--text-secondary)', fontWeight: 'normal' }}>/month</span>
           </div>
           <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', fontSize: '0.9rem' }}>
-            Limited Founder Offer. Only the first 20 customers can purchase this plan.
+            {isSoldOut ? "Currently Unavailable. Stay tuned for future offers." : "Limited Founder Offer. Secure your early access premium plan."}
           </p>
           
           <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 2rem 0', textAlign: 'left', width: '100%' }}>
@@ -32,7 +47,11 @@ export default function Pricing() {
             (Fair Usage Policy applies)
           </p>
           
-          <Link to="/register" className="btn" style={{ width: '100%', fontSize: '1.1rem', padding: '1rem' }}>Get Started</Link>
+          {isSoldOut ? (
+            <button className="btn" disabled style={{ width: '100%', fontSize: '1.1rem', padding: '1rem', opacity: 0.5, cursor: 'not-allowed' }}>Sold Out</button>
+          ) : (
+            <Link to="/register" className="btn" style={{ width: '100%', fontSize: '1.1rem', padding: '1rem' }}>Get Started</Link>
+          )}
         </div>
       </div>
     </section>

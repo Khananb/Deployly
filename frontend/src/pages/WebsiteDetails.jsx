@@ -17,7 +17,7 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
   const { addToast } = useToast();
   const pollInterval = useRef(null);
 
-  const loadData = async () => {
+  const loadData = React.useCallback(async () => {
     try {
       const webRes = await fetchApi(`/websites/${websiteId}`, {}, token);
       setWebsite(webRes.data.website);
@@ -32,14 +32,14 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [websiteId, token, addToast]);
 
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [websiteId, token, addToast]);
 
-  const loadLogs = async (deploymentId) => {
+  const loadLogs = React.useCallback(async (deploymentId) => {
     try {
       const res = await fetchApi(`/deployments/${deploymentId}/logs`, {}, token);
       const sortedLogs = (res.data.logs || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -47,7 +47,7 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
     if (selectedDeployment) {
@@ -77,7 +77,7 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
         pollInterval.current = null;
       }
     };
-  }, [selectedDeployment, deployments]);
+  }, [selectedDeployment, deployments, loadLogs, loadData]);
 
   const handleDeploy = async (deploymentId) => {
     setDeploying(true);
@@ -152,7 +152,7 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
           <ArrowLeft size={16} /> Back
         </button>
         <div className="skeleton skeleton-title" style={{ height: '2.5rem', width: '300px' }}></div>
-        <div className="grid" style={{ gridTemplateColumns: '1fr 2fr', gap: '2rem', marginTop: '2rem' }}>
+        <div className="grid details-grid" style={{ gridTemplateColumns: '1fr 2fr', gap: '2rem', marginTop: '2rem' }}>
             <div className="flex flex-col gap-4">
                 <div className="skeleton skeleton-card"></div>
                 <div className="skeleton skeleton-card" style={{ height: '300px' }}></div>
@@ -211,7 +211,7 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
         </div>
       </div>
 
-      <div className="grid" style={{ gridTemplateColumns: '1fr 2fr', gap: '2rem' }}>
+      <div className="grid details-grid" style={{ gridTemplateColumns: '1fr 2fr', gap: '2rem' }}>
         
         {/* Left Column: Metadata & Upload */}
         <div className="flex flex-col gap-6">
@@ -366,6 +366,7 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
                     fontSize: '0.9rem', 
                     color: '#e2e8f0', 
                     overflowY: 'auto', 
+                    overflowX: 'auto',
                     flex: 1,
                     borderBottomLeftRadius: '12px',
                     borderBottomRightRadius: '12px'
@@ -391,7 +392,7 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
                                 </span> 
                                 <span style={{ 
                                     color: log.status === 'error' || log.status === 'failed' ? '#fca5a5' : '#e2e8f0', 
-                                    wordBreak: 'break-all' 
+                                    whiteSpace: 'nowrap'
                                 }}>
                                     {log.message || log.status.toUpperCase()}
                                 </span>

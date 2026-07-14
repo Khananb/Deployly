@@ -47,7 +47,7 @@ function App() {
         />
         <Route 
           path="/register" 
-          element={token ? <Navigate to="/dashboard" replace /> : <Register />} 
+          element={token ? <Navigate to="/dashboard" replace /> : <Register onLogin={handleLogin} />} 
         />
 
         {/* Protected Dashboard Routes */}

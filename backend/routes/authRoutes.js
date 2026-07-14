@@ -1,7 +1,7 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
 const router = express.Router();
-const { register, login } = require("../controllers/authController");
+const { register, login, googleLogin } = require("../controllers/authController");
 
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -17,6 +17,7 @@ const registerLimiter = rateLimit({
 
 router.post("/register", registerLimiter, register);
 router.post("/login", loginLimiter, login);
+router.post("/google", loginLimiter, googleLogin);
 
 router.get("/", (req, res) => {
     res.json({ message: "Auth API Working" });

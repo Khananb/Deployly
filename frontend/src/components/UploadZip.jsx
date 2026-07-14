@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, CheckCircle, XCircle } from 'lucide-react';
+import { UploadCloud, XCircle } from 'lucide-react';
 
 export default function UploadZip({ websiteId, token, onUploadSuccess }) {
   const [uploading, setUploading] = useState(false);
@@ -25,7 +25,8 @@ export default function UploadZip({ websiteId, token, onUploadSuccess }) {
       // Since fetch doesn't support upload progress natively in browser, we fake a progress bar visually 
       // or just show an indeterminate loading state. For real progress we use XHR.
       
-      const response = await fetch(`http://localhost:4000/api/websites/${websiteId}/upload`, {
+      const API_BASE = import.meta.env.VITE_API_URL || "/api";
+      const response = await fetch(`${API_BASE}/websites/${websiteId}/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

@@ -7,7 +7,7 @@ export default function FAQ() {
     { q: "What is Deployly?", a: "Deployly is a cloud hosting platform that simplifies deploying Node.js apps, PHP scripts, and Static websites. It abstracts the complexity of VPS management so you can focus on writing code." },
     { q: "How is Deployly different from traditional VPS?", a: "Unlike a raw VPS where you have to manually configure Nginx, SSL, PM2, and MySQL, Deployly handles all infrastructure orchestration automatically in the background." },
     { q: "Do I get a Free SSL Certificate?", a: "Yes. Every custom domain you connect to Deployly receives an automated Let's Encrypt SSL certificate." },
-    { q: "What is the Founder Edition plan?", a: "The Founder Edition is our exclusive introductory offer. It provides you with our premium features at a heavily discounted rate. Due to capacity, it is strictly limited to the first 20 customers." },
+    { q: "What is the Founder Edition plan?", a: "The Founder Edition is our exclusive introductory offer. It provides you with our premium features at a heavily discounted rate." },
     { q: "What happens if I exceed my bandwidth?", a: "Deployly includes 1000 GB of monthly bandwidth subject to our Fair Usage Policy. If you consistently exceed this limit, our team will reach out to help you upgrade to a custom enterprise tier." }
   ];
 

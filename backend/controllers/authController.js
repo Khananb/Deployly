@@ -42,7 +42,52 @@ const login = asyncHandler(async (req, res) => {
     sendSuccess(res, data, "Login successful");
 });
 
+const admin = require("../config/firebase");
+
+const googleLoginSchema = Joi.object({
+    idToken: Joi.string().required()
+});
+
+const googleLogin = asyncHandler(async (req, res) => {
+    const { error, value } = googleLoginSchema.validate(req.body);
+    if (error) {
+        const err = new Error(error.details[0].message);
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const { idToken } = value;
+    
+    let decodedToken;
+    try {
+        decodedToken = await admin.auth().verifyIdToken(idToken);
+    } catch (firebaseErr) {
+        const err = new Error("Invalid or expired Google Token");
+        err.statusCode = 401;
+        throw err;
+    }
+
+    const { email, name, picture, email_verified, uid } = decodedToken;
+    if (!email) {
+        const err = new Error("Email is required from Google Account");
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const data = await authService.providerLogin(
+        'google',
+        uid,
+        email,
+        name || email.split('@')[0],
+        picture || null,
+        email_verified || false
+    );
+
+    sendSuccess(res, data, "Login successful");
+});
+
 module.exports = {
     register,
-    login
+    login,
+    googleLogin
 };

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { fetchApi } from '../utils/api';
 import { useToast } from '../context/ToastContext';
-import { Globe, Server, HardDrive, Activity, Zap, CheckCircle, Clock } from 'lucide-react';
+import { Globe, Server, HardDrive, Activity, Zap, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Dashboard({ token }) {
-  const [stats, setStats] = useState(null);
+  const [_stats, setStats] = useState(null);
   const [billing, setBilling] = useState(null);
   const [websites, setWebsites] = useState([]);
   const [loading, setLoading] = useState(true);
