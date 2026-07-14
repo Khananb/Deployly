@@ -9,3 +9,5 @@ uploads/
 tmp/
 .vscode/
 .DS_Store
+test_site.zip
+test_site/
