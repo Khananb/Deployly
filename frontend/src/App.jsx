@@ -9,6 +9,7 @@ import Websites from './pages/Websites'
 import Profile from './pages/Profile'
 import BillingHistory from './pages/BillingHistory'
 import Support from './pages/Support'
+import Doctor from './pages/Doctor'
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || null)
@@ -56,6 +57,7 @@ function App() {
           <Route path="websites" element={<Websites token={token} />} />
           <Route path="billing" element={<BillingHistory token={token} />} />
           <Route path="support" element={<Support />} />
+          <Route path="doctor" element={<Doctor token={token} />} />
           <Route path="profile" element={<Profile token={token} user={user} onLogout={handleLogout} />} />
         </Route>
 

@@ -4,7 +4,7 @@ const domainService = require("../services/domainService");
 const { sendSuccess } = require("../utils/apiResponse");
 
 const domainSchema = Joi.object({
-    domain: Joi.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$/).required(),
+    domain: Joi.string().domain().required(),
     websiteId: Joi.number().required()
 });
 

@@ -63,8 +63,16 @@ const getDashboardStats = async (userId) => {
     );
     return domains;
 };
+const findById = async (id, userId) => {
+    const [domains] = await db.execute(
+        "SELECT id, website_id, domain, status, dns_status, ssl_status, ssl_expires_at, created_at FROM domains WHERE id = ? AND user_id = ?",
+        [id, userId]
+    );
+    return domains[0] || null;
+};
 
 module.exports = {
+    findById,
     findByUserId,
     findByWebsiteId,
     create,

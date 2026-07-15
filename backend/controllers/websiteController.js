@@ -5,14 +5,15 @@ const { sendSuccess } = require("../utils/apiResponse");
 
 const websiteSchema = Joi.object({
     name: Joi.string().required(),
-    domain: Joi.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$/).required(),
+    domain: Joi.string().domain().required(),
     type: Joi.string().valid('node', 'php', 'static', 'unknown').default('unknown')
 });
 
 const updateWebsiteSchema = Joi.object({
-    name: Joi.string().required(),
-    status: Joi.string().valid('pending', 'uploading', 'uploaded', 'deploying', 'installing', 'starting', 'running', 'failed', 'stopping', 'stopped', 'ready').required()
-});
+    name: Joi.string().optional(),
+    status: Joi.string().valid('pending', 'uploading', 'uploaded', 'deploying', 'installing', 'starting', 'running', 'failed', 'stopping', 'stopped', 'ready').optional(),
+    type: Joi.string().valid('node', 'php', 'static', 'unknown').optional()
+}).min(1);
 
 const createWebsite = asyncHandler(async (req, res) => {
     const { error, value } = websiteSchema.validate(req.body);
@@ -48,7 +49,7 @@ const updateWebsite = asyncHandler(async (req, res) => {
         throw err;
     }
     
-    await websiteService.updateWebsite(req.user.id, id, value.name, value.status);
+    await websiteService.updateWebsite(req.user.id, id, value);
     sendSuccess(res, {}, "Website updated successfully");
 });
 
@@ -115,14 +116,59 @@ const deleteWebsite = asyncHandler(async (req, res) => {
     if (website.pm2_process) {
         await pm2Helper.stopProcess(website.pm2_process).catch(() => {});
         await pm2Helper.deleteProcess(website.pm2_process).catch(() => {});
+        if (process.platform !== 'win32') {
+            const util = require('util');
+            const exec = util.promisify(require('child_process').exec);
+            await exec('pm2 save').catch(() => {});
+        }
     }
 
     // Delete files
     const sitesPath = path.join(__dirname, "../../storage/sites", String(userId), String(id));
     const uploadsPath = path.join(__dirname, "../../storage/uploads", String(userId), String(id));
+    const livePath = path.join(__dirname, "../../storage/live", String(userId), String(id));
     
     if (fs.existsSync(sitesPath)) fs.rmSync(sitesPath, { recursive: true, force: true });
     if (fs.existsSync(uploadsPath)) fs.rmSync(uploadsPath, { recursive: true, force: true });
+    if (fs.existsSync(livePath)) fs.rmSync(livePath, { recursive: true, force: true });
+
+    // Delete Nginx config
+    const isWindows = process.platform === 'win32';
+    const nginxConfigDir = isWindows 
+        ? path.join(__dirname, '../../storage/mock-nginx/sites-available')
+        : '/etc/nginx/sites-available';
+    const nginxEnabledDir = isWindows 
+        ? path.join(__dirname, '../../storage/mock-nginx/sites-enabled')
+        : '/etc/nginx/sites-enabled';
+    const configFilename = `deployly-${id}.conf`;
+    
+    const configPath = path.join(nginxConfigDir, configFilename);
+    const symlinkPath = path.join(nginxEnabledDir, configFilename);
+    
+    if (fs.existsSync(symlinkPath)) fs.unlinkSync(symlinkPath);
+    if (fs.existsSync(configPath)) fs.unlinkSync(configPath);
+    
+    // Delete Nginx configs and SSL for Custom Domains
+    const domainService = require("../services/domainService");
+    const sslService = require("../services/sslService");
+    const domains = await domainService.getDomainsForWebsite(userId, id);
+    for (const domain of domains) {
+        const customConfigFilename = `deployly-custom-${domain.id}.conf`;
+        const customConfigPath = path.join(nginxConfigDir, customConfigFilename);
+        const customSymlinkPath = path.join(nginxEnabledDir, customConfigFilename);
+        
+        if (fs.existsSync(customSymlinkPath)) fs.unlinkSync(customSymlinkPath);
+        if (fs.existsSync(customConfigPath)) fs.unlinkSync(customConfigPath);
+        
+        await sslService.revokeSSL(domain.domain).catch(() => {});
+    }
+    
+    // Reload Nginx after deleting config
+    if (!isWindows) {
+        const util = require('util');
+        const exec = util.promisify(require('child_process').exec);
+        await exec('systemctl reload nginx').catch(() => {});
+    }
 
     // Delete from DB (will cascade delete deployments and logs)
     await websiteService.deleteWebsite(userId, id);

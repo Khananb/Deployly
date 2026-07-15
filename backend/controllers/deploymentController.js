@@ -48,31 +48,37 @@ const deployWebsite = asyncHandler(async (req, res) => {
         throw new Error("Extracted source files not found. Upload may have failed.");
     }
 
-    let result;
-    if (deployment.project_type === 'node' || website.type === 'node') {
-        // Call Node.js deployment service
-        const NodeDeploymentService = require("../services/nodeDeploymentService");
-        result = await NodeDeploymentService.deployNodeWebsite(userId, websiteId, deploymentId, extractPath);
-    } else if (deployment.project_type === 'static' || deployment.project_type === 'unknown' || website.type === 'static') {
-        // Call static deployment service
-        const StaticDeploymentService = require("../services/staticDeploymentService");
-        result = await StaticDeploymentService.deployStaticWebsite(userId, websiteId, deploymentId, extractPath);
-    } else {
-        const err = new Error(`Deployment engine for ${deployment.project_type} is not yet implemented.`);
-        err.statusCode = 400;
-        throw err;
-    }
+    await deploymentService.updateDeploymentStatus(deploymentId, 'deploying');
+    await deploymentService.addDeploymentLog(deploymentId, "Deployment", "deploying", "Manual deployment started");
 
-    if (result && result.success) {
-        // Asynchronously process custom domains & SSL after successful deployment
-        const domainService = require("../services/domainService");
-        domainService.processDomainsForWebsite(userId, websiteId, deploymentId).catch(console.error);
-    }
+    // Fire and forget background deployment
+    (async () => {
+        try {
+            let result;
+            if (deployment.project_type === 'node' || website.type === 'node') {
+                const NodeDeploymentService = require("../services/nodeDeploymentService");
+                result = await NodeDeploymentService.deployNodeWebsite(userId, websiteId, deploymentId, extractPath);
+            } else if (deployment.project_type === 'static' || deployment.project_type === 'unknown' || website.type === 'static') {
+                const StaticDeploymentService = require("../services/staticDeploymentService");
+                result = await StaticDeploymentService.deployStaticWebsite(userId, websiteId, deploymentId, extractPath);
+            } else {
+                throw new Error(`Deployment engine for ${deployment.project_type} is not yet implemented.`);
+            }
+
+            if (result && result.success) {
+                const domainService = require("../services/domainService");
+                domainService.processDomainsForWebsite(userId, websiteId, deploymentId).catch(console.error);
+            }
+        } catch (err) {
+            console.error("Manual deployment error:", err);
+            // Error handling is already done inside the specific deployment services (they update status to failed)
+        }
+    })();
 
     sendSuccess(res, {
-        deploymentStatus: result.deploymentStatus,
-        deploymentUrl: result.deploymentUrl
-    }, "Deployment process completed successfully");
+        deploymentStatus: 'deploying',
+        deploymentUrl: null
+    }, "Deployment process started in background");
 });
 
 const getDeployments = asyncHandler(async (req, res) => {

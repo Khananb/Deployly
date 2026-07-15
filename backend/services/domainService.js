@@ -33,14 +33,24 @@ const updateDomainStatus = async (id, userId, status) => {
 };
 
 const removeDomain = async (id, userId) => {
+    // Fetch domain first to get the domain name for certbot deletion
+    const domain = await Domain.findById(id, userId);
+    if (!domain) {
+        const error = new Error("Domain not found or unauthorized");
+        error.statusCode = 404;
+        throw error;
+    }
+    
     const success = await Domain.remove(id, userId);
     if (!success) {
         const error = new Error("Domain not found or unauthorized");
         error.statusCode = 404;
         throw error;
     }
-    // Note: SSL Config removal will be needed here in the future
+    
+    // Cleanup Nginx and SSL Certificate
     await sslService.rollbackConfig(id).catch(() => {});
+    await sslService.revokeSSL(domain.domain).catch(() => {});
 };
 
 const processDomainsForWebsite = async (userId, websiteId, deploymentId) => {
@@ -93,6 +103,7 @@ const processDomainsForWebsite = async (userId, websiteId, deploymentId) => {
             } catch (err) {
                 await deploymentService.addDeploymentLog(deploymentId, "Custom Domain Error", "failed", `Error processing ${domain.domain}: ${err.message}`);
                 await sslService.rollbackConfig(domain.id).catch(() => {});
+                await Domain.updateStatus(domain.id, userId, 'failed');
                 await Domain.updateSSLStatus(domain.id, userId, 'failed');
             }
         }

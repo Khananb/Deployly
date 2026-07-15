@@ -41,12 +41,19 @@ const getWebsiteById = async (userId, websiteId) => {
     return rows[0];
 };
 
-const updateWebsite = async (userId, websiteId, name, status) => {
-    // Only allow updating name or status for now
-    const [result] = await db.execute(
-        "UPDATE websites SET name = ?, status = ? WHERE id = ? AND user_id = ?",
-        [name, status, websiteId, userId]
-    );
+const updateWebsite = async (userId, websiteId, data) => {
+    const fields = [];
+    const values = [];
+    if (data.name !== undefined) { fields.push('name = ?'); values.push(data.name); }
+    if (data.status !== undefined) { fields.push('status = ?'); values.push(data.status); }
+    if (data.type !== undefined) { fields.push('type = ?'); values.push(data.type); }
+
+    if (fields.length === 0) return true;
+
+    const query = `UPDATE websites SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`;
+    values.push(websiteId, userId);
+
+    const [result] = await db.execute(query, values);
     if (result.affectedRows === 0) throw new Error("Website not found or not authorized");
     return true;
 };

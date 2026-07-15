@@ -1,0 +1,72 @@
+
+--- Run at 2026-07-15T13:10:28.084Z ---
+QA REPORT
+
+PASS
+
+FAIL
+❌ Auth - fetch failed
+
+Time
+0s
+
+Summary: PASS 0, FAIL 1
+
+
+--- Run at 2026-07-15T13:20:36.330Z ---
+QA REPORT
+
+PASS
+
+FAIL
+❌ Auth - Internal Server Error
+
+Time
+0s
+
+Summary: PASS 0, FAIL 1
+
+
+--- Run at 2026-07-15T20:42:39.138Z ---
+QA REPORT
+
+PASS
+
+FAIL
+❌ Auth - Internal Server Error
+
+Time
+0s
+
+Summary: PASS 0, FAIL 1
+
+
+--- Run at 2026-07-15T20:43:36.128Z ---
+QA REPORT
+
+PASS
+✔ Auth
+
+FAIL
+❌ Static Hosting - "domain" with value "qastatic1784148216085.deployly.test" fails to match the required pattern: /^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$/
+
+Time
+1s
+
+Summary: PASS 1, FAIL 1
+
+
+--- Run at 2026-07-15T20:45:48.828Z ---
+QA REPORT
+
+PASS
+✔ Auth
+
+FAIL
+❌ Static Hosting - "domain" with value "qastatic1784148348785.deployly.test" fails to match the required pattern: /^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$/
+
+Time
+0s
+
+Summary: PASS 1, FAIL 1
+

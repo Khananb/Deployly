@@ -86,43 +86,54 @@ const uploadWebsiteZip = asyncHandler(async (req, res) => {
         await deploymentService.updateDeploymentPaths(deploymentId, uploadPath, extractPath);
         await deploymentService.addDeploymentLog(deploymentId, "Deployment", "ready", "Ready for deployment");
 
-        let finalStatus = 'ready';
-        let deploymentUrl = null;
-
         // Auto-Deploy if engine is detected
         if (detectionResult.projectType !== 'unknown') {
             await deploymentService.addDeploymentLog(deploymentId, "Auto-Deploy", "pending", `Auto-deploying as ${detectionResult.projectType}`);
-            try {
-                let autoDeployResult;
-                if (detectionResult.projectType === 'node') {
-                    const NodeDeploymentService = require("../services/nodeDeploymentService");
-                    autoDeployResult = await NodeDeploymentService.deployNodeWebsite(userId, websiteId, deploymentId, extractPath);
-                } else if (detectionResult.projectType === 'static') {
-                    const StaticDeploymentService = require("../services/staticDeploymentService");
-                    autoDeployResult = await StaticDeploymentService.deployStaticWebsite(userId, websiteId, deploymentId, extractPath);
-                }
+            await deploymentService.updateDeploymentStatus(deploymentId, 'deploying');
+            
+            // Fire and forget background deployment
+            (async () => {
+                try {
+                    let autoDeployResult;
+                    if (detectionResult.projectType === 'node') {
+                        const NodeDeploymentService = require("../services/nodeDeploymentService");
+                        autoDeployResult = await NodeDeploymentService.deployNodeWebsite(userId, websiteId, deploymentId, extractPath);
+                    } else if (detectionResult.projectType === 'static') {
+                        const StaticDeploymentService = require("../services/staticDeploymentService");
+                        autoDeployResult = await StaticDeploymentService.deployStaticWebsite(userId, websiteId, deploymentId, extractPath);
+                    }
 
-                if (autoDeployResult && autoDeployResult.success) {
-                    finalStatus = autoDeployResult.deploymentStatus;
-                    deploymentUrl = autoDeployResult.deploymentUrl;
-                    const domainService = require("../services/domainService");
-                    domainService.processDomainsForWebsite(userId, websiteId, deploymentId).catch(console.error);
+                    if (autoDeployResult) {
+                        // Process Custom Domains & SSL before marking as deployed
+                        const domainService = require("../services/domainService");
+                        await domainService.processDomainsForWebsite(userId, websiteId, deploymentId).catch(console.error);
+                        
+                        await deploymentService.updateDeploymentStatus(deploymentId, 'deployed');
+                    }
+                } catch (deployErr) {
+                    await deploymentService.updateDeploymentStatus(deploymentId, 'failed');
+                    await deploymentService.addDeploymentLog(deploymentId, "Auto-Deploy", "failed", deployErr.message);
                 }
-            } catch (deployErr) {
-                await deploymentService.updateDeploymentStatus(deploymentId, 'failed');
-                await deploymentService.addDeploymentLog(deploymentId, "Auto-Deploy", "failed", deployErr.message);
-                throw deployErr;
-            }
+            })();
+
+            return sendSuccess(res, {
+                success: true,
+                status: 'deploying',
+                deploymentId,
+                message: "Deployment started."
+            });
+        } else {
+            // Project type is unknown, require manual selection
+            await deploymentService.updateDeploymentStatus(deploymentId, 'ready');
+            await deploymentService.addDeploymentLog(deploymentId, "Detection", "warning", "Engine detection failed. Manual engine selection required.");
+            
+            return sendSuccess(res, {
+                success: true,
+                status: 'unknown_engine',
+                deploymentId,
+                message: "Engine detection failed. Please select engine manually."
+            });
         }
-
-        sendSuccess(res, {
-            websiteId,
-            extractPath,
-            deploymentId,
-            status: finalStatus,
-            deploymentUrl,
-            detection: detectionResult
-        }, "Upload and extraction process completed successfully");
     } catch (err) {
         // On failure
         await deploymentService.updateDeploymentStatus(deploymentId, 'failed');

@@ -14,6 +14,12 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
   const [domains, setDomains] = useState([]);
   const [newDomain, setNewDomain] = useState('');
   const [addingDomain, setAddingDomain] = useState(false);
+  
+  const [showEngineModal, setShowEngineModal] = useState(false);
+  const [pendingDeploymentId, setPendingDeploymentId] = useState(null);
+  const [selectedEngine, setSelectedEngine] = useState('node');
+  const [resumingDeployment, setResumingDeployment] = useState(false);
+
   const { addToast } = useToast();
   const pollInterval = useRef(null);
 
@@ -108,11 +114,38 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
   };
 
   const handleUploadSuccess = (data) => {
-    addToast('ZIP uploaded successfully. Extracting...', 'success');
-    if (data && data.deploymentId) {
-      setSelectedDeployment(data.deploymentId);
+    if (data && data.status === 'unknown_engine') {
+        addToast('Project engine could not be detected. Please select manually.', 'warning');
+        setPendingDeploymentId(data.deploymentId);
+        setShowEngineModal(true);
+    } else {
+        addToast('ZIP uploaded successfully. Deploying...', 'success');
+        if (data && data.deploymentId) {
+            setSelectedDeployment(data.deploymentId);
+        }
     }
     loadData();
+  };
+
+  const handleResumeDeployment = async () => {
+      setResumingDeployment(true);
+      try {
+          // Update the website type
+          await fetchApi(`/websites/${websiteId}`, {
+              method: 'PUT',
+              body: JSON.stringify({ type: selectedEngine })
+          }, token);
+          
+          // Trigger the deployment with the new engine
+          await handleDeploy(pendingDeploymentId);
+          
+          setShowEngineModal(false);
+          setPendingDeploymentId(null);
+      } catch (err) {
+          addToast(err.message, 'error');
+      } finally {
+          setResumingDeployment(false);
+      }
   };
 
   const handleAddDomain = async (e) => {
@@ -198,7 +231,7 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
         
         <div className="flex gap-3">
             <button onClick={() => {
-                const lastDep = deployments.find(d => d.status === 'deployed');
+                const lastDep = deployments.find(d => d.status === 'deployed' || d.status === 'failed');
                 if (lastDep) handleDeploy(lastDep.id);
             }} className="btn btn-secondary" disabled={deploying || isAnyDeploying}>
                 <RefreshCw size={16} className={deploying ? 'spinner-sm' : ''} /> Redeploy
@@ -210,6 +243,37 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
             )}
         </div>
       </div>
+
+      {showEngineModal && (
+        <div className="modal-backdrop">
+          <div className="modal-content">
+            <h3 style={{ marginTop: 0 }}>Select Project Engine</h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.95rem' }}>
+              We couldn't automatically detect your project's framework. Please select the correct engine to continue deployment.
+            </p>
+            <div className="form-group">
+              <label>Engine Type</label>
+              <select 
+                value={selectedEngine} 
+                onChange={e => setSelectedEngine(e.target.value)}
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+              >
+                <option value="node">Node.js (Next.js, Express, Nuxt, etc)</option>
+                <option value="static">Static HTML (React/Vite Export, HTML/CSS)</option>
+                <option value="php">PHP (Laravel, WordPress, Raw PHP)</option>
+              </select>
+            </div>
+            <div className="flex gap-3 justify-end" style={{ marginTop: '2rem' }}>
+              <button className="btn btn-secondary" onClick={() => setShowEngineModal(false)} disabled={resumingDeployment}>
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={handleResumeDeployment} disabled={resumingDeployment}>
+                {resumingDeployment ? 'Starting...' : 'Continue Deployment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid details-grid" style={{ gridTemplateColumns: '1fr 2fr', gap: '2rem' }}>
         

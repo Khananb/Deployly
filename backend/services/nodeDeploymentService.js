@@ -23,7 +23,7 @@ class NodeDeploymentService {
         const symlinkPath = path.join(nginxEnabledDir, configFilename);
         const domainUrl = `${websiteId}.deployly.online`;
         const fullUrl = `https://${domainUrl}`;
-        const pm2AppName = `deployly-${userId}-${websiteId}`;
+        const pm2AppName = `deployly-${userId}-${websiteId}-${deploymentId}`;
 
         let currentStep = 'pre-deployment-check';
         let allocatedPort = null;
@@ -110,13 +110,10 @@ class NodeDeploymentService {
             // 6. Start PM2
             currentStep = 'pm2-start';
             await deploymentService.addDeploymentLog(deploymentId, "PM2", "deploying", "Starting PM2 application...");
-            
-            // Delete existing process if it somehow exists
-            await exec(`pm2 delete ${pm2AppName}`).catch(() => {});
 
             const pm2Cmd = isNpmScript 
-                ? `pm2 start npm --name "${pm2AppName}" -- run ${startupCommand}`
-                : `pm2 start ${startupCommand} --name "${pm2AppName}"`;
+                ? `pm2 start npm --name "${pm2AppName}" --max-memory-restart 300M --merge-logs --log-date-format "YYYY-MM-DD HH:mm:ss" -- run ${startupCommand}`
+                : `pm2 start ${startupCommand} --name "${pm2AppName}" --max-memory-restart 300M --merge-logs --log-date-format "YYYY-MM-DD HH:mm:ss"`;
 
             await exec(pm2Cmd, { 
                 cwd: liveBasePath,
@@ -173,8 +170,13 @@ server {
             if (isWindows) {
                 await deploymentService.addDeploymentLog(deploymentId, "Nginx Test", "success", "[MOCK] Nginx configuration test passed");
             } else {
-                await exec('nginx -t');
-                await deploymentService.addDeploymentLog(deploymentId, "Nginx Test", "success", "Nginx configuration test passed");
+                try {
+                    await exec('nginx -t');
+                    await deploymentService.addDeploymentLog(deploymentId, "Nginx Test", "success", "Nginx configuration test passed");
+                } catch (nginxErr) {
+                    await deploymentService.addDeploymentLog(deploymentId, "Nginx Test", "failed", `Nginx configuration test failed: ${nginxErr.message}`);
+                    throw new Error(`Nginx validation failed: ${nginxErr.message}`);
+                }
             }
 
             // 10. Reload Nginx
@@ -187,20 +189,32 @@ server {
                 await deploymentService.addDeploymentLog(deploymentId, "Nginx Reload", "success", "Nginx reloaded successfully");
             }
 
-            // 11. Health Check
+            // 11. Cleanup Old PM2 Process
+            currentStep = 'cleanup-old-pm2';
+            if (website.pm2_process && website.pm2_process !== pm2AppName) {
+                await deploymentService.addDeploymentLog(deploymentId, "PM2 Cleanup", "deploying", "Removing old PM2 instance...");
+                await exec(`pm2 delete ${website.pm2_process}`).catch(() => {});
+                if (!isWindows) {
+                    await exec('pm2 save').catch(() => {});
+                }
+                await deploymentService.addDeploymentLog(deploymentId, "PM2 Cleanup", "success", "Old PM2 instance removed");
+            }
+
+            // 12. Health Check
             currentStep = 'health-check';
             await deploymentService.addDeploymentLog(deploymentId, "Health Check", "deploying", "Running health check...");
             
             const maxRetries = 10;
             const retryInterval = 2000;
-            let healthCheckPassed = false;
+            let isHealthy = false;
+            const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
             
             for (let i = 0; i < maxRetries; i++) {
                 try {
-                    const response = await fetch(`http://127.0.0.1:${allocatedPort}`);
-                    // Any valid HTTP response indicates the node process is alive and bound to the port
-                    if (response.status) {
-                        healthCheckPassed = true;
+                    const healthUrl = isWindows ? `http://127.0.0.1:${allocatedPort}` : fullUrl;
+                    const response = await fetch(healthUrl, { timeout: 3000 });
+                    if (response.ok) {
+                        isHealthy = true;
                         break;
                     }
                 } catch (e) {
@@ -209,12 +223,12 @@ server {
                 await new Promise(res => setTimeout(res, retryInterval));
             }
             
-            if (!healthCheckPassed) {
+            if (!isHealthy) {
                 throw new Error("Health check failed: Application did not respond successfully on the allocated port after 10 attempts.");
             }
             await deploymentService.addDeploymentLog(deploymentId, "Health Check", "success", "Application is healthy and responding to requests");
 
-            // 12. Finalize Deployment
+            // Finalize Deployment
             currentStep = 'finalize';
             const deploymentTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
 

@@ -145,6 +145,17 @@ server {
         // e.g. run certbot renew
         console.log(`Renewing certificate for domainId: ${domainId}`);
     }
+
+    static async revokeSSL(domainName) {
+        if (process.env.SSL_DEV_BYPASS === 'true') {
+            return;
+        }
+        try {
+            await exec(`certbot delete --cert-name ${domainName} --non-interactive`);
+        } catch (e) {
+            console.error(`Certbot delete failed for ${domainName}:`, e.message);
+        }
+    }
 }
 
 module.exports = SSLService;

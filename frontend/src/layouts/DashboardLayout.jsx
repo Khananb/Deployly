@@ -42,6 +42,7 @@ export default function DashboardLayout({ token, user, onLogout }) {
           <NavLink to="/dashboard/websites" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>Websites</NavLink>
           <NavLink to="/dashboard/billing" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>Billing History</NavLink>
           <NavLink to="/dashboard/support" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>Support</NavLink>
+          <NavLink to="/dashboard/doctor" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>🩺 Deployly Doctor</NavLink>
           <NavLink to="/dashboard/profile" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>Profile</NavLink>
         </div>
       </nav>

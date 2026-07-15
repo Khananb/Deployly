@@ -17,9 +17,22 @@ class ZipService {
         fs.mkdirSync(targetPath, { recursive: true });
 
         try {
+            let totalSize = 0;
+            let fileCount = 0;
+
             await extract(sourcePath, {
                 dir: targetPath,
                 onEntry: (entry, zipfile) => {
+                    fileCount++;
+                    totalSize += entry.uncompressedSize;
+                    
+                    if (totalSize > 500 * 1024 * 1024) {
+                        throw new Error("Security Violation: Uncompressed size exceeds 500MB limit.");
+                    }
+                    if (fileCount > 10000) {
+                        throw new Error("Security Violation: File count exceeds 10,000 limit.");
+                    }
+
                     const fileName = entry.fileName;
                     
                     // 1. Reject symlinks to prevent Zip Slip / arbitrary file write

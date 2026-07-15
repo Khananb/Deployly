@@ -28,8 +28,20 @@ class StaticDeploymentService {
         try {
             await deploymentService.addDeploymentLog(deploymentId, "Deployment", "deploying", "Deployment process started");
 
-            // 1. Pre-deployment check
-            if (!fs.existsSync(path.join(extractPath, 'index.html'))) {
+            // 1. Find true source path (handle single nested directory from ZIP)
+            let sourcePath = extractPath;
+            if (fs.existsSync(extractPath)) {
+                const items = fs.readdirSync(extractPath);
+                if (items.length === 1) {
+                    const singleItemPath = path.join(extractPath, items[0]);
+                    if (fs.statSync(singleItemPath).isDirectory()) {
+                        sourcePath = singleItemPath;
+                    }
+                }
+            }
+
+            // 2. Pre-deployment check
+            if (!fs.existsSync(path.join(sourcePath, 'index.html'))) {
                 throw new Error("Validation Failed: No index.html found in the source directory");
             }
             await deploymentService.addDeploymentLog(deploymentId, "Validation", "success", "Pre-deployment checks passed (index.html found)");
@@ -44,12 +56,12 @@ class StaticDeploymentService {
                 fs.mkdirSync(liveBasePath, { recursive: true });
             }
 
-            // 2. Safe Copy Files
-            // Copy all contents from extractPath to liveBasePath
-            fs.cpSync(extractPath, liveBasePath, { recursive: true });
+            // 3. Safe Copy Files
+            // Copy all contents from sourcePath to liveBasePath
+            fs.cpSync(sourcePath, liveBasePath, { recursive: true });
             await deploymentService.addDeploymentLog(deploymentId, "Copy Files", "success", "Files successfully copied to live directory");
 
-            // 3. Post-deployment check
+            // 4. Post-deployment check
             currentStep = 'post-copy-check';
             if (!fs.existsSync(path.join(liveBasePath, 'index.html'))) {
                 throw new Error("Verification Failed: index.html is missing in live directory after copy");
@@ -99,8 +111,13 @@ server {
             if (isWindows) {
                 await deploymentService.addDeploymentLog(deploymentId, "Nginx Test", "success", "[MOCK] Nginx configuration test passed");
             } else {
-                await exec('nginx -t');
-                await deploymentService.addDeploymentLog(deploymentId, "Nginx Test", "success", "Nginx configuration test passed");
+                try {
+                    await exec('nginx -t');
+                    await deploymentService.addDeploymentLog(deploymentId, "Nginx Test", "success", "Nginx configuration test passed");
+                } catch (nginxErr) {
+                    await deploymentService.addDeploymentLog(deploymentId, "Nginx Test", "failed", `Nginx configuration test failed: ${nginxErr.message}`);
+                    throw new Error(`Nginx validation failed: ${nginxErr.message}`);
+                }
             }
 
             // 7. Reload Nginx
@@ -118,10 +135,23 @@ server {
 
             await deploymentService.updateDeploymentStatus(deploymentId, 'deployed');
             
-            // Note: Since this is static, we don't have a pm2_process or last_error
+            // Cleanup any existing PM2 processes if the user switched from Node.js to Static
+            try {
+                const website = await websiteService.getWebsiteById(userId, websiteId);
+                if (website && website.pm2_process) {
+                    await deploymentService.addDeploymentLog(deploymentId, "PM2 Cleanup", "pending", `Cleaning up old PM2 process: ${website.pm2_process}`);
+                    await exec(`pm2 delete ${website.pm2_process}`).catch(() => {});
+                    await deploymentService.addDeploymentLog(deploymentId, "PM2 Cleanup", "success", "Old PM2 process removed successfully");
+                }
+            } catch (cleanupErr) {
+                // Ignore cleanup errors
+            }
+
+            // Note: Since this is static, we don't have a pm2_process, allocated_port, or last_error
             await websiteService.updateWebsiteDeploymentData(websiteId, {
                 status: 'running',
                 pm2_process: null,
+                allocated_port: null,
                 last_deployed_at: deploymentTime,
                 started_at: deploymentTime,
                 last_error: null,
