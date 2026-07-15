@@ -68,11 +68,21 @@ const googleLogin = asyncHandler(async (req, res) => {
     let decodedToken;
     try {
         decodedToken = await admin.auth().verifyIdToken(idToken);
-    } catch (firebaseErr) {
-        const err = new Error("Invalid or expired Google Token");
-        err.statusCode = 401;
-        throw err;
-    }
+try {
+    decodedToken = await admin.auth().verifyIdToken(idToken);
+} catch (firebaseErr) {
+
+    console.error("========== FIREBASE ERROR ==========");
+    console.error(firebaseErr);
+    console.error(firebaseErr.message);
+    console.error(firebaseErr.code);
+    console.error(firebaseErr.stack);
+    console.error("===================================");
+
+    const err = new Error("Invalid or expired Google Token");
+    err.statusCode = 401;
+    throw err;
+}
 
     const { email, name, picture, email_verified, uid } = decodedToken;
     if (!email) {
