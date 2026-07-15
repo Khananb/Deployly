@@ -50,6 +50,7 @@ const login = asyncHandler(async (req, res) => {
 });
 
 const admin = require("../config/firebase");
+const { getAuth } = require("firebase-admin/auth");
 
 const googleLoginSchema = Joi.object({
     idToken: Joi.string().required()
@@ -67,10 +68,8 @@ const googleLogin = asyncHandler(async (req, res) => {
     
     let decodedToken;
     try {
-        decodedToken = await admin.auth().verifyIdToken(idToken);
-try {
-    decodedToken = await admin.auth().verifyIdToken(idToken);
-} catch (firebaseErr) {
+        decodedToken = await getAuth().verifyIdToken(idToken);
+    } catch (firebaseErr) {
 
     console.error("========== FIREBASE ERROR ==========");
     console.error(firebaseErr);
