@@ -90,12 +90,14 @@ export default function Login({ onLogin }) {
             <label>Email Address</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="input-field" placeholder="you@example.com" required />
           </div>
-          <div className="form-group" style={{ position: 'relative' }}>
+          <div className="form-group">
             <label>Password</label>
-            <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} className="input-field" placeholder="••••••••" required style={{ paddingRight: '2.5rem' }} />
-            <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '10px', top: '35px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-            </button>
+            <div style={{ position: 'relative' }}>
+              <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} className="input-field" placeholder="••••••••" required style={{ paddingRight: '2.5rem', width: '100%', boxSizing: 'border-box' }} />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
           <button type="submit" disabled={loading || googleLoading} className="btn flex items-center justify-center gap-2" style={{ width: '100%', marginTop: '1rem', padding: '0.75rem' }}>
             {loading ? <Loader2 size={18} className="animate-spin" /> : 'Sign In'}

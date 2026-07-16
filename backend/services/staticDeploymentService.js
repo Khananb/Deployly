@@ -20,7 +20,8 @@ class StaticDeploymentService {
         const configFilename = `deployly-${websiteId}.conf`;
         const configPath = path.join(nginxConfigDir, configFilename);
         const symlinkPath = path.join(nginxEnabledDir, configFilename);
-        const domainUrl = `${websiteId}.deployly.online`;
+        const website = await websiteService.getWebsiteById(userId, websiteId);
+        const domainUrl = website.domain;
         const fullUrl = `https://${domainUrl}`;
 
         let currentStep = 'pre-deployment-check';

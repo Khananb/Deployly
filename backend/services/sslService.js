@@ -111,7 +111,7 @@ server {
         }
 
         try {
-            await exec(`certbot --nginx -d ${domainName} --non-interactive --agree-tos -m admin@deployly.online --redirect`);
+            await exec(`certbot --nginx -d ${domainName} --non-interactive --agree-tos -m admin@deployly.online --redirect --keep-until-expiring`);
             return true;
         } catch (e) {
             throw new Error(`Certbot failed: ${e.message}`);

@@ -28,7 +28,7 @@ async function deleteProcess(processName) {
  * Restart a PM2 process
  */
 async function restartProcess(processName) {
-    const { error, stdout, stderr } = await execPromise(`pm2 restart ${processName}`);
+    const { error, stdout, stderr } = await execPromise(`pm2 restart ${processName} --update-env`);
     return { success: !error, stdout, stderr };
 }
 

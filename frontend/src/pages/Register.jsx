@@ -116,12 +116,14 @@ export default function Register({ onLogin }) {
             <label>Email Address</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="input-field" placeholder="you@example.com" required />
           </div>
-          <div className="form-group" style={{ position: 'relative' }}>
+          <div className="form-group">
             <label>Password</label>
-            <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} className="input-field" placeholder="••••••••" required style={{ paddingRight: '2.5rem' }} />
-            <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '10px', top: '35px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-            </button>
+            <div style={{ position: 'relative' }}>
+              <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} className="input-field" placeholder="••••••••" required style={{ paddingRight: '2.5rem', width: '100%', boxSizing: 'border-box' }} />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
             {password.length > 0 && (
               <div style={{ marginTop: '0.5rem' }}>
                 <div style={{ display: 'flex', gap: '4px', height: '4px', marginBottom: '4px' }}>

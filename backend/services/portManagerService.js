@@ -29,9 +29,9 @@ const isPortInUse = (port) => {
  * Finds the next available port starting from 4001.
  * Ensures the port is neither bound on the host nor assigned in the database.
  */
-const allocatePort = async () => {
+const allocatePort = async (websiteId) => {
     // 1. Get all currently assigned ports from DB
-    const [rows] = await db.execute("SELECT allocated_port FROM websites WHERE allocated_port IS NOT NULL");
+    const [rows] = await db.execute("SELECT allocated_port FROM websites WHERE allocated_port IS NOT NULL FOR UPDATE");
     const assignedPorts = new Set(rows.map(row => row.allocated_port));
     
     let port = 4001; // Base starting port for user applications
@@ -43,6 +43,8 @@ const allocatePort = async () => {
             // 3. Check if OS has it bound (just to be safe against zombie processes or external apps)
             const inUse = await isPortInUse(port);
             if (!inUse) {
+                // 4. Reserve immediately in DB to prevent concurrent race conditions
+                await db.execute("UPDATE websites SET allocated_port = ? WHERE id = ?", [port, websiteId]);
                 return port;
             }
         }

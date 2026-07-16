@@ -21,7 +21,8 @@ class NodeDeploymentService {
         const configFilename = `deployly-${websiteId}.conf`;
         const configPath = path.join(nginxConfigDir, configFilename);
         const symlinkPath = path.join(nginxEnabledDir, configFilename);
-        const domainUrl = `${websiteId}.deployly.online`;
+        const website = await websiteService.getWebsiteById(userId, websiteId);
+        const domainUrl = website.domain;
         const fullUrl = `https://${domainUrl}`;
         const pm2AppName = `deployly-${userId}-${websiteId}-${deploymentId}`;
 
@@ -32,7 +33,6 @@ class NodeDeploymentService {
             await deploymentService.addDeploymentLog(deploymentId, "Deployment", "deploying", "Deployment process started");
 
             // 1. Pre-deployment check
-            const website = await websiteService.getWebsiteById(userId, websiteId);
             if (website.project_type !== 'node' && website.type !== 'node') {
                 throw new Error("Validation Failed: Project is not marked as a Node.js application");
             }
@@ -128,7 +128,7 @@ class NodeDeploymentService {
             // 5. Allocate Port
             currentStep = 'allocate-port';
             await deploymentService.addDeploymentLog(deploymentId, "Port Manager", "deploying", "Allocating port...");
-            allocatedPort = await portManagerService.allocatePort();
+            allocatedPort = await portManagerService.allocatePort(websiteId);
             await deploymentService.addDeploymentLog(deploymentId, "Port Manager", "success", `Allocated port: ${allocatedPort}`);
 
             // 6. Start PM2
@@ -164,7 +164,8 @@ class NodeDeploymentService {
                     // Use local port for health check because Nginx is not yet proxying to the new port
                     const healthUrl = `http://127.0.0.1:${allocatedPort}`;
                     const response = await fetch(healthUrl, { timeout: 3000 });
-                    if (response.ok) {
+                    // Any response means the port is bound and the HTTP server is running
+                    if (response.status) {
                         isHealthy = true;
                         break;
                     }
