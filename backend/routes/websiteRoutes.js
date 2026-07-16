@@ -13,7 +13,7 @@ const router = express.Router();
 router.post("/", verifyToken, enforceLimit('website'), createWebsite);
 router.get("/", verifyToken, getWebsites);
 router.get("/:id", verifyToken, getWebsiteById);
-router.put("/:id", verifyToken, updateWebsite);
+router.patch("/:id", verifyToken, updateWebsite);
 router.delete("/:id", verifyToken, deleteWebsite);
 router.post("/:id/restart", verifyToken, restartWebsite);
 router.post("/:id/stop", verifyToken, stopWebsite);

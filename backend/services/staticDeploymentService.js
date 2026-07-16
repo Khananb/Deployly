@@ -25,6 +25,7 @@ class StaticDeploymentService {
         const fullUrl = `https://${domainUrl}`;
 
         let currentStep = 'pre-deployment-check';
+        const backupPath = liveBasePath + '_backup';
 
         try {
             await deploymentService.addDeploymentLog(deploymentId, "Deployment", "deploying", "Deployment process started");
@@ -68,7 +69,6 @@ class StaticDeploymentService {
 
             // Fast Swap to Live Directory to minimize downtime
             currentStep = 'swap-directories';
-            const backupPath = liveBasePath + '_backup';
             if (fs.existsSync(liveBasePath)) {
                 if (fs.existsSync(backupPath)) fs.rmSync(backupPath, { recursive: true, force: true });
                 fs.renameSync(liveBasePath, backupPath);
@@ -156,7 +156,6 @@ server {
             }
 
             // Delete backup if successful
-            const backupPath = liveBasePath + '_backup';
             if (fs.existsSync(backupPath)) {
                 fs.rmSync(backupPath, { recursive: true, force: true });
             }
@@ -187,7 +186,6 @@ server {
             
             try {
                 // Restore backup if it exists (meaning it was a redeploy)
-                const backupPath = liveBasePath + '_backup';
                 if (fs.existsSync(backupPath)) {
                     if (fs.existsSync(liveBasePath)) fs.rmSync(liveBasePath, { recursive: true, force: true });
                     fs.renameSync(backupPath, liveBasePath);

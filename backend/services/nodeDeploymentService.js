@@ -28,6 +28,7 @@ class NodeDeploymentService {
 
         let currentStep = 'pre-deployment-check';
         let allocatedPort = null;
+        const backupPath = liveBasePath + '_backup';
 
         try {
             await deploymentService.addDeploymentLog(deploymentId, "Deployment", "deploying", "Deployment process started");
@@ -81,7 +82,6 @@ class NodeDeploymentService {
 
             // Fast Swap to Live Directory to minimize downtime
             currentStep = 'swap-directories';
-            const backupPath = liveBasePath + '_backup';
             if (fs.existsSync(liveBasePath)) {
                 if (fs.existsSync(backupPath)) fs.rmSync(backupPath, { recursive: true, force: true });
                 fs.renameSync(liveBasePath, backupPath);
@@ -256,7 +256,6 @@ server {
             }
             
             // Delete backup if successful
-            const backupPath = liveBasePath + '_backup';
             if (fs.existsSync(backupPath)) {
                 fs.rmSync(backupPath, { recursive: true, force: true });
             }
@@ -301,7 +300,6 @@ server {
                 }
 
                 // Restore backup if it exists (meaning it was a redeploy)
-                const backupPath = liveBasePath + '_backup';
                 if (fs.existsSync(backupPath)) {
                     if (fs.existsSync(liveBasePath)) fs.rmSync(liveBasePath, { recursive: true, force: true });
                     fs.renameSync(backupPath, liveBasePath);

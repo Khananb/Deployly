@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTMLSnap - Live Editor & Share</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --surface: #161b22;
+            --border: #30363d;
+            --accent: #58a6ff;
+            --accent-hover: #79c0ff;
+            --text: #c9d1d9;
+            --muted: #8b949e;
+            --success: #3fb950;
+            --warning: #d2991d;
+            --danger: #f85149;
+            --radius: 8px;
+            --transition: 0.15s ease;
+            --font-mono: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+            --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-sans);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+        .toolbar .logo {
+            font-weight: 700;
+            font-size: 1rem;
+            letter-spacing: -0.3px;
+            color: #fff;
+            margin-right: auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .logo span {
+            color: var(--accent);
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            transition: var(--transition);
+            white-space: nowrap;
+            font-family: inherit;
+        }
+        .btn:hover {
+            background: #21262d;
+            border-color: #8b949e;
+        }
+        .btn-primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #0d1117;
+            font-weight: 600;
+        }
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+        .btn-success {
+            background: var(--success);
+            border-color: var(--success);
+            color: #0d1117;
+        }
+        .btn-success:hover {
+            filter: brightness(1.1);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .separator {
+            width: 1px;
+            height: 20px;
+            background: var(--border);
+            margin: 0 4px;
+        }
+
+        /* Main container */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: row;
+            overflow: hidden;
+            min-height: 0;
+        }
+        @media (max-width: 768px) {
+            .main {
+                flex-direction: column;
+            }
+            .divider {
+                width: 100% !important;
+                height: 4px !important;
+                cursor: row-resize !important;
+            }
+        }
+
+        /* Panels */
+        .editor-panel,
+        .preview-panel {
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            min-height: 0;
+        }
+        .editor-panel {
+            flex: 1 1 0;
+            position: relative;
+        }
+        .preview-panel {
+            flex: 1 1 0;
+            background: #ffffff;
+            position: relative;
+        }
+
+        /* Resizable divider */
+        .divider {
+            width: 4px;
+            background: var(--border);
+            cursor: col-resize;
+            flex-shrink: 0;
+            transition: background 0.1s;
+            position: relative;
+            z-index: 10;
+        }
+        .divider:hover,
+        .divider.active {
+            background: var(--accent);
+        }
+
+        /* Editor area */
+        .editor-container {
+            flex: 1;
+            display: flex;
+            position: relative;
+            overflow: hidden;
+        }
+        .line-numbers {
+            width: 3em;
+            background: #0d1117;
+            color: #484f58;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            line-height: 1.6;
+            padding: 12px 8px;
+            text-align: right;
+            overflow: hidden;
+            user-select: none;
+            border-right: 1px solid var(--border);
+            white-space: pre;
+            flex-shrink: 0;
+            pointer-events: none;
+        }
+        .line-numbers span {
+            display: block;
+        }
+        textarea {
+            flex: 1;
+            background: #0d1117;
+            color: #e6edf3;
+            border: none;
+            padding: 12px 16px;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+            tab-size: 2;
+            caret-color: var(--accent);
+            white-space: pre;
+            overflow: auto;
+        }
+        textarea::placeholder {
+            color: #484f58;
+            font-style: italic;
+        }
+
+        /* Preview iframe wrapper */
+        .preview-frame-wrapper {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            background: #f0f2f5;
+            overflow: auto;
+            padding: 10px;
+            transition: all 0.2s;
+        }
+        .preview-frame-wrapper.viewport-desktop {
+            justify-content: stretch;
+        }
+        .preview-frame-wrapper.viewport-desktop iframe {
+            width: 100%;
+        }
+        .preview-frame-wrapper.viewport-tablet {
+            justify-content: center;
+        }
+        .preview-frame-wrapper.viewport-tablet iframe {
+            width: 768px;
+            max-width: 100%;
+            box-shadow: 0 0 0 2px #ddd;
+        }
+        .preview-frame-wrapper.viewport-mobile {
+            justify-content: center;
+        }
+        .preview-frame-wrapper.viewport-mobile iframe {
+            width: 375px;
+            max-width: 100%;
+            box-shadow: 0 0 0 2px #ddd;
+        }
+        iframe {
+            border: none;
+            background: #fff;
+            height: 100%;
+            min-height: 300px;
+            transition: width 0.2s;
+        }
+        .preview-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #8b949e;
+            height: 100%;
+            width: 100%;
+            font-size: 0.9rem;
+            gap: 6px;
+        }
+        .error-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--danger);
+            font-weight: 600;
+            font-size: 0.9rem;
+            z-index: 5;
+            backdrop-filter: blur(2px);
+            pointer-events: none;
+        }
+
+        /* Link bar */
+        .link-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            font-size: 0.75rem;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+            color: var(--muted);
+        }
+        .link-bar .url-text {
+            flex: 1;
+            font-family: var(--font-mono);
+            word-break: break-all;
+            color: var(--accent);
+            min-width: 200px;
+            padding: 4px 8px;
+            background: #0d1117;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            border: 1px solid var(--border);
+        }
+        .warning-badge {
+            background: var(--warning);
+            color: #0d1117;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .hidden {
+            display: none !important;
+        }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            pointer-events: none;
+        }
+        .toast {
+            pointer-events: auto;
+            background: #1c2128;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 18px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            animation: slideIn 0.25s ease, fadeOut 0.25s ease 2.5s forwards;
+            max-width: 400px;
+            backdrop-filter: blur(8px);
+        }
+        .toast.success { border-left: 4px solid var(--success); }
+        .toast.warning { border-left: 4px solid var(--warning); }
+        .toast.info { border-left: 4px solid var(--accent); }
+        .toast.error { border-left: 4px solid var(--danger); }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <div class="logo"><span>&lt;/&gt;</span> HTMLSnap</div>
+        <button class="btn" onclick="clearEditor()" title="Clear editor">🗑️ Clear</button>
+        <button class="btn" onclick="loadSample()" title="Load sample">📄 Sample</button>
+        <span class="separator"></span>
+        <button class="btn" id="downloadBtn" title="Download as .html">⬇️ Download</button>
+        <button class="btn" id="openInTabBtn" title="Open preview in new tab">🔗 Open</button>
+        <span class="separator"></span>
+        <span style="font-size:0.75rem;color:var(--muted);">View:</span>
+        <button class="btn view-btn active" data-view="desktop">🖥️</button>
+        <button class="btn view-btn" data-view="tablet">📱</button>
+        <button class="btn view-btn" data-view="mobile">📱📱</button>
+        <span class="separator"></span>
+        <button class="btn btn-primary" id="generateLinkBtn">🔗 Share Link</button>
+    </div>
+
+    <!-- Main split -->
+    <div class="main" id="mainContainer">
+        <!-- Editor panel -->
+        <div class="editor-panel" id="editorPanel">
+            <div class="editor-container">
+                <div class="line-numbers" id="lineNumbers"></div>
+                <textarea id="htmlInput" placeholder='<!DOCTYPE html>&#10;<html>&#10;<head><title>Page</title></head>&#10;<body>&#10;  <h1>Hello HTMLSnap!</h1>&#10;  <p>Edit me, preview, then share with a link.</p>&#10;</body>&#10;</html>' spellcheck="false"></textarea>
+            </div>
+        </div>
+
+        <!-- Resizable divider -->
+        <div class="divider" id="divider"></div>
+
+        <!-- Preview panel -->
+        <div class="preview-panel" id="previewPanel">
+            <div class="preview-frame-wrapper viewport-desktop" id="previewWrapper">
+                <div class="preview-placeholder" id="placeholder">
+                    <span>📭</span> Preview will appear here
+                </div>
+                <iframe id="previewFrame" sandbox="allow-scripts allow-same-origin" title="Live Preview"></iframe>
+                <div class="error-overlay hidden" id="errorOverlay">⚠️ Preview failed to load</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Link bar (shown when link generated) -->
+    <div class="link-bar hidden" id="linkBar">
+        <span>🔗 Shareable link:</span>
+        <span class="url-text" id="shareUrlDisplay"></span>
+        <span id="charCount" style="font-size:0.7rem;"></span>
+        <span id="sizeWarning" class="warning-badge hidden">⚠️ &gt;2000 chars</span>
+        <button class="btn" onclick="copyShareLink()">📋 Copy</button>
+        <button class="btn" onclick="clearShareLink()">✕</button>
+    </div>
+
+    <!-- LZ-String (embedded, minified) -->
+    <script>
+        // LZString v1.4.4 - MIT License (minified)
+        var LZString=function(){var f=String.fromCharCode,o="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",e="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$",t={};function r(n,i){if(!t[n]){t[n]={};for(var e=0;e<n.length;e++)t[n][n.charAt(e)]=e}return t[n][i]}var n={compressToEncodedURIComponent:function(n){return null==n?"":n._compress(n,6,function(n){return e.charAt(n)})},decompressFromEncodedURIComponent:function(n){return null==n?"":""==n?null:n._decompress(n.length,32,function(t){return r(e,n.charAt(t))})},_compress:function(n,i,e){if(null==n)return"";var t,s,o,a={},p={},u="",c="",l="",h=2,f=3,g=2,d=[],m=0,v=0;for(o=0;o<n.length;o+=1)if(u=n.charAt(o),Object.prototype.hasOwnProperty.call(a,u)||(a[u]=f++,p[u]=!0),l=c+u,Object.prototype.hasOwnProperty.call(a,l))c=l;else{if(Object.prototype.hasOwnProperty.call(p,c)){if(c.charCodeAt(0)<256){for(t=0;t<h;t++)m<<=1,v==i-1?(v=0,d.push(e(m)),m=0):v++;for(s=c.charCodeAt(0),t=0;t<8;t++)m=m<<1|1&s,v==i-1?(v=0,d.push(e(m)),m=0):v++,s>>=1}else{for(s=1,t=0;t<h;t++)m=m<<1|s,v==i-1?(v=0,d.push(e(m)),m=0):v++,s=0;for(s=c.charCodeAt(0),t=0;t<16;t++)m=m<<1|1&s,v==i-1?(v=0,d.push(e(m)),m=0):v++,s>>=1}0==--g&&(g=Math.pow(2,h),h++),delete p[c]}else for(s=a[c],t=0;t<h;t++)m=m<<1|1&s,v==i-1?(v=0,d.push(e(m)),m=0):v++,s>>=1;0==--g&&(g=Math.pow(2,h),h++),a[l]=f++,c=String(u)}if(""!==c){if(Object.prototype.hasOwnProperty.call(p,c)){if(c.charCodeAt(0)<256){for(t=0;t<h;t++)m<<=1,v==i-1?(v=0,d.push(e(m)),m=0):v++;for(s=c.charCodeAt(0),t=0;t<8;t++)m=m<<1|1&s,v==i-1?(v=0,d.push(e(m)),m=0):v++,s>>=1}else{for(s=1,t=0;t<h;t++)m=m<<1|s,v==i-1?(v=0,d.push(e(m)),m=0):v++,s=0;for(s=c.charCodeAt(0),t=0;t<16;t++)m=m<<1|1&s,v==i-1?(v=0,d.push(e(m)),m=0):v++,s>>=1}0==--g&&(g=Math.pow(2,h),h++),delete p[c]}else for(s=a[c],t=0;t<h;t++)m=m<<1|1&s,v==i-1?(v=0,d.push(e(m)),m=0):v++,s>>=1;0==--g&&(g=Math.pow(2,h),h++)}for(s=2,t=0;t<h;t++)m=m<<1|1&s,v==i-1?(v=0,d.push(e(m)),m=0):v++,s>>=1;for(;;){if(m<<=1,v==i-1){d.push(e(m));break}v++}return d.join("")},_decompress:function(n,i,e){var t,s,o,a,p,u,c,l=[],h=4,f=4,g=3,d="",m=[],v={val:e(0),position:i,index:1};for(t=0;t<3;t+=1)l[t]=t;for(o=0,p=Math.pow(2,2),a=1;a!=p;)u=v.val&v.position,v.position>>=1,0==v.position&&(v.position=i,v.val=e(v.index++)),o|=(u>0?1:0)*a,a<<=1;switch(o){case 0:for(o=0,p=Math.pow(2,8),a=1;a!=p;)u=v.val&v.position,v.position>>=1,0==v.position&&(v.position=i,v.val=e(v.index++)),o|=(u>0?1:0)*a,a<<=1;c=f(o);break;case 1:for(o=0,p=Math.pow(2,16),a=1;a!=p;)u=v.val&v.position,v.position>>=1,0==v.position&&(v.position=i,v.val=e(v.index++)),o|=(u>0?1:0)*a,a<<=1;c=f(o);break;case 2:return""}for(l[3]=c,s=c,m.push(c);;){if(v.index>n)return"";for(o=0,p=Math.pow(2,g),a=1;a!=p;)u=v.val&v.position,v.position>>=1,0==v.position&&(v.position=i,v.val=e(v.index++)),o|=(u>0?1:0)*a,a<<=1;switch(c=o){case 0:for(o=0,p=Math.pow(2,8),a=1;a!=p;)u=v.val&v.position,v.position>>=1,0==v.position&&(v.position=i,v.val=e(v.index++)),o|=(u>0?1:0)*a,a<<=1;l[f++]=f(o),c=f-1,h--;break;case 1:for(o=0,p=Math.pow(2,16),a=1;a!=p;)u=v.val&v.position,v.position>>=1,0==v.position&&(v.position=i,v.val=e(v.index++)),o|=(u>0?1:0)*a,a<<=1;l[f++]=f(o),c=f-1,h--;break;case 2:return m.join("")}if(0==h&&(h=Math.pow(2,g),g++),l[c])d=l[c];else{if(c!==f)return null;d=s+s.charAt(0)}m.push(d),l[f++]=s+d.charAt(0),s=d,0==--h&&(h=Math.pow(2,g),g++)}}};return n}();
+    </script>
+
+    <script>
+        (function() {
+            // ---- DOM references ----
+            const htmlInput = document.getElementById('htmlInput');
+            const lineNumbers = document.getElementById('lineNumbers');
+            const previewFrame = document.getElementById('previewFrame');
+            const placeholder = document.getElementById('placeholder');
+            const errorOverlay = document.getElementById('errorOverlay');
+            const previewWrapper = document.getElementById('previewWrapper');
+            const linkBar = document.getElementById('linkBar');
+            const shareUrlDisplay = document.getElementById('shareUrlDisplay');
+            const charCount = document.getElementById('charCount');
+            const sizeWarning = document.getElementById('sizeWarning');
+            const toastContainer = document.getElementById('toastContainer');
+            const divider = document.getElementById('divider');
+            const mainContainer = document.getElementById('mainContainer');
+            const editorPanel = document.getElementById('editorPanel');
+            const previewPanel = document.getElementById('previewPanel');
+            const generateLinkBtn = document.getElementById('generateLinkBtn');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const openInTabBtn = document.getElementById('openInTabBtn');
+
+            // ---- State ----
+            let currentBlobUrl = null;
+            let currentShareUrl = '';
+            let debounceTimer = null;
+            let isDragging = false;
+            let startX, startY, startLeftWidth, startTopHeight;
+            let viewMode = 'desktop';
+
+            // ---- Toast ----
+            function showToast(message, type = 'info') {
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                const icons = { success: '✅', warning: '⚠️', info: 'ℹ️', error: '❌' };
+                toast.textContent = `${icons[type] || ''} ${message}`;
+                toastContainer.appendChild(toast);
+                setTimeout(() => {
+                    if (toast.parentNode) toast.remove();
+                }, 3000);
+            }
+
+            // ---- Line numbers ----
+            function updateLineNumbers() {
+                const lines = htmlInput.value.split('\n').length;
+                const nums = Array.from({ length: lines }, (_, i) => i + 1).join('\n');
+                lineNumbers.innerHTML = nums.split('\n').map(n => `<span>${n}</span>`).join('');
+                // Sync scroll height
+                lineNumbers.style.height = htmlInput.scrollHeight + 'px';
+            }
+
+            // Sync scroll
+            htmlInput.addEventListener('scroll', () => {
+                lineNumbers.scrollTop = htmlInput.scrollTop;
+            });
+
+            // ---- Tab key support ----
+            htmlInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    const start = this.selectionStart;
+                    const end = this.selectionEnd;
+                    const spaces = '  ';
+                    this.value = this.value.substring(0, start) + spaces + this.value.substring(end);
+                    this.selectionStart = this.selectionEnd = start + spaces.length;
+                    // Trigger input manually to update preview
+                    this.dispatchEvent(new Event('input'));
+                }
+                // Ctrl+Enter -> generate share link
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    generateShareableLink();
+                }
+                // Ctrl+S -> download
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    e.preventDefault();
+                    downloadHTML();
+                }
+            });
+
+            // ---- Preview (blob with debounce) ----
+            function renderPreview(html) {
+                // Hide error overlay
+                errorOverlay.classList.add('hidden');
+                placeholder.style.display = 'none';
+                previewFrame.style.display = 'block';
+
+                const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+                const newUrl = URL.createObjectURL(blob);
+                const oldUrl = currentBlobUrl;
+                currentBlobUrl = newUrl;
+
+                // Revoke old blob after new one loads
+                if (oldUrl) {
+                    previewFrame.addEventListener('load', function revokeOld() {
+                        URL.revokeObjectURL(oldUrl);
+                        previewFrame.removeEventListener('load', revokeOld);
+                    }, { once: true });
+                }
+
+                // Error handling
+                previewFrame.onerror = () => {
+                    errorOverlay.classList.remove('hidden');
+                    previewFrame.style.display = 'none';
+                    placeholder.style.display = 'flex';
+                };
+
+                previewFrame.src = newUrl;
+            }
+
+            function clearPreview() {
+                if (currentBlobUrl) {
+                    URL.revokeObjectURL(currentBlobUrl);
+                    currentBlobUrl = null;
+                }
+                previewFrame.src = 'about:blank';
+                previewFrame.style.display = 'none';
+                placeholder.style.display = 'flex';
+                errorOverlay.classList.add('hidden');
+            }
+
+            function livePreviewUpdate() {
+                const code = htmlInput.value;
+                if (!code.trim()) {
+                    clearPreview();
+                    return;
+                }
+                renderPreview(code);
+            }
+
+            function debouncedPreview() {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(livePreviewUpdate, 300);
+            }
+
+            htmlInput.addEventListener('input', () => {
+                updateLineNumbers();
+                debouncedPreview();
+            });
+
+            // Initial line numbers
+            updateLineNumbers();
+
+            // ---- Viewport toggle ----
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    viewMode = this.dataset.view;
+                    previewWrapper.className = 'preview-frame-wrapper viewport-' + viewMode;
+                });
+            });
+
+            // ---- Open in new tab ----
+            openInTabBtn.addEventListener('click', () => {
+                const code = htmlInput.value.trim();
+                if (!code) {
+                    showToast('Nothing to open', 'warning');
+                    return;
+                }
+                const blob = new Blob([code], { type: 'text/html;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+                // Clean up after a while
+                setTimeout(() => URL.revokeObjectURL(url), 30000);
+            });
+
+            // ---- Download ----
+            function downloadHTML() {
+                const code = htmlInput.value.trim();
+                if (!code) {
+                    showToast('Nothing to download', 'warning');
+                    return;
+                }
+                const blob = new Blob([code], { type: 'text/html;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'file.html';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast('Downloaded file.html', 'success');
+            }
+            downloadBtn.addEventListener('click', downloadHTML);
+
+            // ---- Shareable link (LZ-String) ----
+            function generateShareableLink() {
+                const code = htmlInput.value.trim();
+                if (!code) {
+                    showToast('No code to share', 'warning');
+                    return;
+                }
+                try {
+                    const compressed = LZString.compressToEncodedURIComponent(code);
+                    const baseUrl = window.location.href.split('#')[0];
+                    const shareUrl = baseUrl + '#' + compressed;
+                    currentShareUrl = shareUrl;
+                    shareUrlDisplay.textContent = shareUrl;
+                    linkBar.classList.remove('hidden');
+
+                    // Update char count and warning
+                    const len = compressed.length;
+                    charCount.textContent = `${len} chars`;
+                    if (len > 2000) {
+                        sizeWarning.classList.remove('hidden');
+                        sizeWarning.textContent = '⚠️ >2000 chars (may not work everywhere)';
+                    } else {
+                        sizeWarning.classList.add('hidden');
+                    }
+
+                    // Update URL hash silently
+                    history.replaceState(null, '', shareUrl);
+                    showToast('Share link generated!', 'success');
+                } catch (err) {
+                    showToast('Failed to compress (code too large?)', 'error');
+                    console.error(err);
+                }
+            }
+            generateLinkBtn.addEventListener('click', generateShareableLink);
+
+            function copyShareLink() {
+                if (!currentShareUrl) {
+                    showToast('Generate a link first', 'warning');
+                    return;
+                }
+                navigator.clipboard.writeText(currentShareUrl).then(() => {
+                    showToast('Link copied!', 'success');
+                }).catch(() => {
+                    showToast('Copy failed', 'error');
+                });
+            }
+
+            function clearShareLink() {
+                currentShareUrl = '';
+                linkBar.classList.add('hidden');
+                shareUrlDisplay.textContent = '';
+                charCount.textContent = '';
+                sizeWarning.classList.add('hidden');
+                if (window.location.hash) {
+                    history.replaceState(null, '', window.location.href.split('#')[0]);
+                }
+            }
+
+            // ---- Load from URL hash on start ----
+            function loadFromHash() {
+                const hash = window.location.hash.substring(1);
+                if (!hash) return false;
+                try {
+                    const decompressed = LZString.decompressFromEncodedURIComponent(hash);
+                    if (decompressed === null || decompressed === '') return false;
+                    htmlInput.value = decompressed;
+                    updateLineNumbers();
+                    livePreviewUpdate();
+                    // Restore share link state
+                    currentShareUrl = window.location.href;
+                    shareUrlDisplay.textContent = currentShareUrl;
+                    const len = hash.length;
+                    charCount.textContent = `${len} chars`;
+                    if (len > 2000) {
+                        sizeWarning.classList.remove('hidden');
+                        sizeWarning.textContent = '⚠️ >2000 chars (may not work everywhere)';
+                    } else {
+                        sizeWarning.classList.add('hidden');
+                    }
+                    linkBar.classList.remove('hidden');
+                    showToast('Loaded shared HTML', 'info');
+                    return true;
+                } catch (e) {
+                    console.warn('Invalid hash', e);
+                    return false;
+                }
+            }
+
+            // ---- Resizable divider ----
+            function startDrag(e) {
+                e.preventDefault();
+                isDragging = true;
+                divider.classList.add('active');
+                const isHorizontal = window.innerWidth <= 768;
+                if (isHorizontal) {
+                    startY = e.clientY || e.touches[0].clientY;
+                    startTopHeight = editorPanel.getBoundingClientRect().height;
+                } else {
+                    startX = e.clientX || e.touches[0].clientX;
+                    startLeftWidth = editorPanel.getBoundingClientRect().width;
+                }
+            }
+
+            function onDrag(e) {
+                if (!isDragging) return;
+                const isHorizontal = window.innerWidth <= 768;
+                const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+                const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+                if (isHorizontal) {
+                    const deltaY = clientY - startY;
+                    let newHeight = startTopHeight + deltaY;
+                    const containerHeight = mainContainer.getBoundingClientRect().height;
+                    newHeight = Math.max(120, Math.min(newHeight, containerHeight - 120));
+                    editorPanel.style.height = newHeight + 'px';
+                    editorPanel.style.flex = 'none';
+                    previewPanel.style.flex = '1 1 0';
+                } else {
+                    const deltaX = clientX - startX;
+                    let newWidth = startLeftWidth + deltaX;
+                    const containerWidth = mainContainer.getBoundingClientRect().width;
+                    newWidth = Math.max(200, Math.min(newWidth, containerWidth - 200));
+                    editorPanel.style.width = newWidth + 'px';
+                    editorPanel.style.flex = 'none';
+                    previewPanel.style.flex = '1 1 0';
+                }
+            }
+
+            function stopDrag() {
+                if (!isDragging) return;
+                isDragging = false;
+                divider.classList.remove('active');
+                // Store final sizes? Not needed.
+            }
+
+            divider.addEventListener('mousedown', startDrag);
+            divider.addEventListener('touchstart', startDrag, { passive: false });
+            window.addEventListener('mousemove', onDrag);
+            window.addEventListener('touchmove', onDrag, { passive: false });
+            window.addEventListener('mouseup', stopDrag);
+            window.addEventListener('touchend', stopDrag);
+
+            // Reset flex on window resize to avoid stuck fixed sizes (simple)
+            window.addEventListener('resize', () => {
+                if (window.innerWidth > 768) {
+                    // Reset horizontal layout flex
+                    if (editorPanel.style.height) {
+                        editorPanel.style.height = '';
+                        editorPanel.style.flex = '';
+                        previewPanel.style.flex = '';
+                    }
+                } else {
+                    if (editorPanel.style.width) {
+                        editorPanel.style.width = '';
+                        editorPanel.style.flex = '';
+                        previewPanel.style.flex = '';
+                    }
+                }
+            });
+
+            // ---- Clear & Sample ----
+            window.clearEditor = function() {
+                htmlInput.value = '';
+                updateLineNumbers();
+                clearPreview();
+                clearShareLink();
+                htmlInput.focus();
+            };
+
+            window.loadSample = function() {
+                const sample = `<!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Sample Shared Page</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body {
+                    font-family: system-ui, sans-serif;
+                    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+                    min-height: 100vh;
+                    display: flex; align-items: center; justify-content: center; padding: 20px;
+                }
+                .card {
+                    background: white; border-radius: 20px; padding: 40px; max-width: 400px;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.2); text-align: center;
+                }
+                h1 { color: #1e293b; margin-bottom: 12px; }
+                p { color: #475569; line-height: 1.6; }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h1>🚀 It works!</h1>
+                <p>This page was shared via <strong>HTMLSnap</strong>. Edit the code on the left and generate a new link.</p>
+            </div>
+        </body>
+        </html>`;
+                htmlInput.value = sample;
+                updateLineNumbers();
+                livePreviewUpdate();
+                clearShareLink();
+                htmlInput.focus();
+                showToast('Sample loaded', 'info');
+            };
+
+            // Expose for inline handlers
+            window.copyShareLink = copyShareLink;
+            window.clearShareLink = clearShareLink;
+            window.generateShareableLink = generateShareableLink;
+
+            // ---- Init ----
+            if (!loadFromHash()) {
+                // default empty state
+                htmlInput.value = '';
+                updateLineNumbers();
+                clearPreview();
+            } else {
+                updateLineNumbers();
+            }
+
+            // Ensure line numbers synced initially
+            lineNumbers.scrollTop = htmlInput.scrollTop;
+        })();
+    </script>
+</body>
+</html>

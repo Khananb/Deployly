@@ -44,9 +44,15 @@ const getWebsiteById = async (userId, websiteId) => {
 const updateWebsite = async (userId, websiteId, data) => {
     const fields = [];
     const values = [];
+    
+    if (data.domain !== undefined) {
+        const [existing] = await db.execute("SELECT id FROM websites WHERE domain = ? AND id != ?", [data.domain, websiteId]);
+        if (existing.length > 0) throw new Error("Domain is already in use by another website");
+        fields.push('domain = ?'); 
+        values.push(data.domain); 
+    }
+    
     if (data.name !== undefined) { fields.push('name = ?'); values.push(data.name); }
-    if (data.status !== undefined) { fields.push('status = ?'); values.push(data.status); }
-    if (data.type !== undefined) { fields.push('type = ?'); values.push(data.type); }
 
     if (fields.length === 0) return true;
 

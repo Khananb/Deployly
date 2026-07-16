@@ -55,9 +55,9 @@ async function migrate() {
         await connection.execute(`
             ALTER TABLE deployments 
             MODIFY COLUMN status ENUM(
-                'pending', 'uploading', 'uploaded', 
+                'pending', 'uploading', 'uploaded', 'validating',
                 'deploying', 'installing', 'starting', 
-                'running', 'failed', 'stopping', 'stopped', 'ready'
+                'running', 'failed', 'stopping', 'stopped', 'ready', 'deployed'
             ) NOT NULL DEFAULT 'pending'
         `);
         console.log("✔ deployments.status ENUM updated.");

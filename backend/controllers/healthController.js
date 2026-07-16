@@ -114,15 +114,15 @@ const getDoctorStatus = async (req, res) => {
     // 5. Disk
     await measure('disk', 1, async () => {
         if (isWindows) {
-            const { stdout } = await exec('wmic logicaldisk get freespace,size');
-            const lines = stdout.trim().split('\n');
-            if (lines.length > 1) {
-                const parts = lines[1].trim().split(/\s+/);
-                const free = parseInt(parts[0]) / (1024 ** 3);
-                const total = parseInt(parts[1]) / (1024 ** 3);
+            try {
+                const stats = fs.statfsSync('C:\\');
+                const free = (stats.bfree * stats.bsize) / (1024 ** 3);
+                const total = (stats.blocks * stats.bsize) / (1024 ** 3);
                 const percent = Math.round((free / total) * 100);
                 const severity = percent < 10 ? 'critical' : percent < 20 ? 'warning' : 'healthy';
                 return { status: `${percent}% Free`, severity, message: `${free.toFixed(1)} GB free of ${total.toFixed(1)} GB` };
+            } catch (err) {
+                return { status: 'Error', severity: 'critical', message: err.message };
             }
         } else {
             const { stdout } = await exec('df -h /');
