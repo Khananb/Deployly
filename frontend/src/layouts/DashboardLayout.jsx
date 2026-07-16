@@ -37,13 +37,14 @@ export default function DashboardLayout({ token, user, onLogout }) {
             <X size={24} color="var(--text-secondary)" />
           </button>
         </div>
-        <div className="sidebar-nav">
+        <div className="sidebar-nav" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <NavLink to="/dashboard" end className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>Dashboard</NavLink>
           <NavLink to="/dashboard/websites" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>Websites</NavLink>
           <NavLink to="/dashboard/billing" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>Billing History</NavLink>
           <NavLink to="/dashboard/support" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>Support</NavLink>
           <NavLink to="/dashboard/doctor" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>🩺 Deployly Doctor</NavLink>
           <NavLink to="/dashboard/profile" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>Profile</NavLink>
+          <button onClick={onLogout} className="nav-item" style={{ background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', color: 'var(--text-primary)', fontSize: 'inherit', fontFamily: 'inherit' }}>Logout</button>
         </div>
       </nav>
       <main className="main-content">

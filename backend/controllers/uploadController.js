@@ -63,7 +63,19 @@ const uploadWebsiteZip = asyncHandler(async (req, res) => {
 
         // Project Validation
         await deploymentService.addDeploymentLog(deploymentId, "Project Validation", "pending", "Validating project structure");
-        const hasFile = (filename) => fs.existsSync(path.join(extractPath, filename));
+        
+        let sourcePath = extractPath;
+        if (fs.existsSync(extractPath)) {
+            const items = fs.readdirSync(extractPath);
+            if (items.length === 1) {
+                const singleItemPath = path.join(extractPath, items[0]);
+                if (fs.statSync(singleItemPath).isDirectory()) {
+                    sourcePath = singleItemPath;
+                }
+            }
+        }
+        
+        const hasFile = (filename) => fs.existsSync(path.join(sourcePath, filename));
         
         switch (detectionResult.projectType) {
             case 'static':
@@ -76,7 +88,7 @@ const uploadWebsiteZip = asyncHandler(async (req, res) => {
                 if (!hasFile('index.php') && !hasFile('composer.json')) throw new Error("A PHP project must contain index.php or composer.json at the root.");
                 break;
             case 'wordpress':
-                if (!hasFile('wp-config.php') && !fs.existsSync(path.join(extractPath, 'wp-content'))) throw new Error("A WordPress project must contain wp-config.php or wp-content at the root.");
+                if (!hasFile('wp-config.php') && !fs.existsSync(path.join(sourcePath, 'wp-content'))) throw new Error("A WordPress project must contain wp-config.php or wp-content at the root.");
                 break;
         }
         await deploymentService.addDeploymentLog(deploymentId, "Project Validation", "success", "Project validation passed");

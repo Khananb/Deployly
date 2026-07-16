@@ -38,25 +38,39 @@ class NodeDeploymentService {
             }
             await deploymentService.addDeploymentLog(deploymentId, "Validation", "success", "Pre-deployment checks passed (Node.js project verified)");
 
-            // Create base live folder if it doesn't exist
-            currentStep = 'copy-files';
-            if (!fs.existsSync(liveBasePath)) {
-                fs.mkdirSync(liveBasePath, { recursive: true });
-            } else {
-                fs.rmSync(liveBasePath, { recursive: true, force: true });
-                fs.mkdirSync(liveBasePath, { recursive: true });
+            // Find true source path (handle single nested directory from ZIP)
+            let sourcePath = extractPath;
+            if (fs.existsSync(extractPath)) {
+                const items = fs.readdirSync(extractPath);
+                if (items.length === 1) {
+                    const singleItemPath = path.join(extractPath, items[0]);
+                    if (fs.statSync(singleItemPath).isDirectory()) {
+                        sourcePath = singleItemPath;
+                    }
+                }
             }
 
-            // 2. Safe Copy Files
-            fs.cpSync(extractPath, liveBasePath, { recursive: true });
-            await deploymentService.addDeploymentLog(deploymentId, "Copy Files", "success", "Files successfully copied to live directory");
+            // Create temporary build folder to prevent downtime during npm install
+            currentStep = 'copy-files';
+            const tmpLivePath = liveBasePath + '_tmp';
+            if (fs.existsSync(tmpLivePath)) {
+                fs.rmSync(tmpLivePath, { recursive: true, force: true });
+            }
+            fs.mkdirSync(tmpLivePath, { recursive: true });
 
-            // 3. Install Dependencies
+            // 2. Safe Copy Files to Temp
+            fs.cpSync(sourcePath, tmpLivePath, { recursive: true });
+            await deploymentService.addDeploymentLog(deploymentId, "Copy Files", "success", "Files successfully copied to build directory");
+
+            // 3. Install Dependencies in Temp
             currentStep = 'install-dependencies';
             await deploymentService.addDeploymentLog(deploymentId, "NPM", "deploying", "Installing dependencies...");
-            if (fs.existsSync(path.join(liveBasePath, 'package.json'))) {
+            if (fs.existsSync(path.join(tmpLivePath, 'package.json'))) {
                 try {
-                    await exec('npm install', { cwd: liveBasePath });
+                    await exec('npm install --no-fund --no-audit --loglevel=error', { 
+                        cwd: tmpLivePath,
+                        maxBuffer: 1024 * 1024 * 50 // 50MB
+                    });
                     await deploymentService.addDeploymentLog(deploymentId, "NPM", "success", "Dependencies installed successfully");
                 } catch (npmErr) {
                     throw new Error(`Failed to install dependencies: ${npmErr.message}`);
@@ -64,6 +78,16 @@ class NodeDeploymentService {
             } else {
                 await deploymentService.addDeploymentLog(deploymentId, "NPM", "success", "No package.json found, skipping dependency installation");
             }
+
+            // Fast Swap to Live Directory to minimize downtime
+            currentStep = 'swap-directories';
+            const backupPath = liveBasePath + '_backup';
+            if (fs.existsSync(liveBasePath)) {
+                if (fs.existsSync(backupPath)) fs.rmSync(backupPath, { recursive: true, force: true });
+                fs.renameSync(liveBasePath, backupPath);
+            }
+            fs.renameSync(tmpLivePath, liveBasePath);
+            await deploymentService.addDeploymentLog(deploymentId, "Swap", "success", "Live directory updated successfully");
 
             // 4. Detect Startup Command
             currentStep = 'detect-startup';
@@ -126,13 +150,42 @@ class NodeDeploymentService {
             }
             await deploymentService.addDeploymentLog(deploymentId, "PM2", "success", "PM2 application created and started successfully");
 
+            // 7. Health Check (Perform BEFORE modifying Nginx and killing old PM2)
+            currentStep = 'health-check';
+            await deploymentService.addDeploymentLog(deploymentId, "Health Check", "deploying", "Running health check...");
+            
+            const maxRetries = 10;
+            const retryInterval = 2000;
+            let isHealthy = false;
+            const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+            
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    // Use local port for health check because Nginx is not yet proxying to the new port
+                    const healthUrl = `http://127.0.0.1:${allocatedPort}`;
+                    const response = await fetch(healthUrl, { timeout: 3000 });
+                    if (response.ok) {
+                        isHealthy = true;
+                        break;
+                    }
+                } catch (e) {
+                    // Fetch failed, wait and retry
+                }
+                await new Promise(res => setTimeout(res, retryInterval));
+            }
+            
+            if (!isHealthy) {
+                throw new Error("Health check failed: Application did not respond successfully on the allocated port after 10 attempts.");
+            }
+            await deploymentService.addDeploymentLog(deploymentId, "Health Check", "success", "Application is healthy and responding to requests");
+
             // Ensure Nginx directories exist (for local Windows mock)
             if (isWindows) {
                 if (!fs.existsSync(nginxConfigDir)) fs.mkdirSync(nginxConfigDir, { recursive: true });
                 if (!fs.existsSync(nginxEnabledDir)) fs.mkdirSync(nginxEnabledDir, { recursive: true });
             }
 
-            // 7. Generate Nginx Config
+            // 8. Generate Nginx Config
             currentStep = 'nginx-config';
             await deploymentService.addDeploymentLog(deploymentId, "Nginx Config", "deploying", "Generating nginx config...");
             const nginxConfigContent = `
@@ -153,20 +206,21 @@ server {
             fs.writeFileSync(configPath, nginxConfigContent);
             await deploymentService.addDeploymentLog(deploymentId, "Nginx Config", "success", `Generated config: ${configFilename}`);
 
-            // 8. Create Symlink
+            // 9. Create Symlink
             currentStep = 'nginx-symlink';
             if (fs.existsSync(symlinkPath)) {
                 fs.unlinkSync(symlinkPath);
             }
+            
             if (isWindows) {
                 fs.copyFileSync(configPath, symlinkPath);
             } else {
                 fs.symlinkSync(configPath, symlinkPath);
             }
+            await deploymentService.addDeploymentLog(deploymentId, "Nginx Config", "success", "Symlink created in sites-enabled");
 
-            // 9. Test Nginx
+            // 10. Test Nginx
             currentStep = 'nginx-test';
-            await deploymentService.addDeploymentLog(deploymentId, "Nginx Test", "deploying", "Testing nginx configuration...");
             if (isWindows) {
                 await deploymentService.addDeploymentLog(deploymentId, "Nginx Test", "success", "[MOCK] Nginx configuration test passed");
             } else {
@@ -179,7 +233,7 @@ server {
                 }
             }
 
-            // 10. Reload Nginx
+            // 11. Reload Nginx
             currentStep = 'nginx-reload';
             await deploymentService.addDeploymentLog(deploymentId, "Nginx Reload", "deploying", "Reloading nginx...");
             if (isWindows) {
@@ -189,7 +243,7 @@ server {
                 await deploymentService.addDeploymentLog(deploymentId, "Nginx Reload", "success", "Nginx reloaded successfully");
             }
 
-            // 11. Cleanup Old PM2 Process
+            // 12. Cleanup Old PM2 Process (Only after successful health check and proxy switch)
             currentStep = 'cleanup-old-pm2';
             if (website.pm2_process && website.pm2_process !== pm2AppName) {
                 await deploymentService.addDeploymentLog(deploymentId, "PM2 Cleanup", "deploying", "Removing old PM2 instance...");
@@ -199,34 +253,12 @@ server {
                 }
                 await deploymentService.addDeploymentLog(deploymentId, "PM2 Cleanup", "success", "Old PM2 instance removed");
             }
-
-            // 12. Health Check
-            currentStep = 'health-check';
-            await deploymentService.addDeploymentLog(deploymentId, "Health Check", "deploying", "Running health check...");
             
-            const maxRetries = 10;
-            const retryInterval = 2000;
-            let isHealthy = false;
-            const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-            
-            for (let i = 0; i < maxRetries; i++) {
-                try {
-                    const healthUrl = isWindows ? `http://127.0.0.1:${allocatedPort}` : fullUrl;
-                    const response = await fetch(healthUrl, { timeout: 3000 });
-                    if (response.ok) {
-                        isHealthy = true;
-                        break;
-                    }
-                } catch (e) {
-                    // Fetch failed, wait and retry
-                }
-                await new Promise(res => setTimeout(res, retryInterval));
+            // Delete backup if successful
+            const backupPath = liveBasePath + '_backup';
+            if (fs.existsSync(backupPath)) {
+                fs.rmSync(backupPath, { recursive: true, force: true });
             }
-            
-            if (!isHealthy) {
-                throw new Error("Health check failed: Application did not respond successfully on the allocated port after 10 attempts.");
-            }
-            await deploymentService.addDeploymentLog(deploymentId, "Health Check", "success", "Application is healthy and responding to requests");
 
             // Finalize Deployment
             currentStep = 'finalize';
@@ -259,25 +291,31 @@ server {
             await deploymentService.addDeploymentLog(deploymentId, "Rollback", "deploying", `Initiating rollback due to failure at step: ${currentStep}`);
             
             try {
-                // Delete PM2 process
+                // Delete NEW PM2 process
                 await exec(`pm2 delete ${pm2AppName}`).catch(() => {});
                 
-                // Release Port
+                // Release NEW Port
                 if (allocatedPort) {
                     await portManagerService.releasePort(websiteId).catch(() => {});
                 }
 
-                // Delete Nginx config & symlink
-                if (fs.existsSync(symlinkPath)) fs.unlinkSync(symlinkPath);
-                if (fs.existsSync(configPath)) fs.unlinkSync(configPath);
-                if (!isWindows) await exec('systemctl reload nginx').catch(() => {});
-
-                // Delete Live directory
-                if (fs.existsSync(liveBasePath)) {
-                    fs.rmSync(liveBasePath, { recursive: true, force: true });
+                // Restore backup if it exists (meaning it was a redeploy)
+                const backupPath = liveBasePath + '_backup';
+                if (fs.existsSync(backupPath)) {
+                    if (fs.existsSync(liveBasePath)) fs.rmSync(liveBasePath, { recursive: true, force: true });
+                    fs.renameSync(backupPath, liveBasePath);
+                    await deploymentService.addDeploymentLog(deploymentId, "Rollback", "success", "Rollback completed. Restored previous working application.");
+                } else {
+                    // Fresh deploy: wipe everything
+                    if (fs.existsSync(symlinkPath)) fs.unlinkSync(symlinkPath);
+                    if (fs.existsSync(configPath)) fs.unlinkSync(configPath);
+                    if (!isWindows) await exec('systemctl reload nginx').catch(() => {});
+                    
+                    if (fs.existsSync(liveBasePath)) {
+                        fs.rmSync(liveBasePath, { recursive: true, force: true });
+                    }
+                    await deploymentService.addDeploymentLog(deploymentId, "Rollback", "success", "Rollback completed. Cleaned up failed fresh install.");
                 }
-                
-                await deploymentService.addDeploymentLog(deploymentId, "Rollback", "success", "Rollback completed. Cleaned up processes, configs, and directories.");
             } catch (rollbackErr) {
                 await deploymentService.addDeploymentLog(deploymentId, "Rollback Error", "failed", `Rollback partially failed: ${rollbackErr.message}`);
             }

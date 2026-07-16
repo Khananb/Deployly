@@ -40,8 +40,15 @@ export default function Register({ onLogin }) {
         method: 'POST',
         body: JSON.stringify({ name, email, password })
       });
-      setSuccess('Account created successfully! Redirecting to login...');
-      setTimeout(() => navigate('/login'), 1500);
+      
+      // Auto-login after successful registration
+      const loginData = await fetchApi('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password })
+      });
+
+      setSuccess('Account created successfully! Redirecting...');
+      setTimeout(() => onLogin(loginData.data.token, loginData.data.user), 1000);
     } catch (err) {
       setError(err.message);
     } finally {

@@ -46,27 +46,34 @@ class StaticDeploymentService {
             }
             await deploymentService.addDeploymentLog(deploymentId, "Validation", "success", "Pre-deployment checks passed (index.html found)");
 
-            // Create base live folder if it doesn't exist
+            // Create temporary build folder to prevent downtime during extraction and validation
             currentStep = 'copy-files';
-            if (!fs.existsSync(liveBasePath)) {
-                fs.mkdirSync(liveBasePath, { recursive: true });
-            } else {
-                // Clean existing live directory content to ensure a clean deployment
-                fs.rmSync(liveBasePath, { recursive: true, force: true });
-                fs.mkdirSync(liveBasePath, { recursive: true });
+            const tmpLivePath = liveBasePath + '_tmp';
+            if (fs.existsSync(tmpLivePath)) {
+                fs.rmSync(tmpLivePath, { recursive: true, force: true });
             }
+            fs.mkdirSync(tmpLivePath, { recursive: true });
 
-            // 3. Safe Copy Files
-            // Copy all contents from sourcePath to liveBasePath
-            fs.cpSync(sourcePath, liveBasePath, { recursive: true });
-            await deploymentService.addDeploymentLog(deploymentId, "Copy Files", "success", "Files successfully copied to live directory");
+            // 3. Safe Copy Files to Temp
+            fs.cpSync(sourcePath, tmpLivePath, { recursive: true });
+            await deploymentService.addDeploymentLog(deploymentId, "Copy Files", "success", "Files successfully copied to build directory");
 
-            // 4. Post-deployment check
+            // 4. Post-deployment check on Temp
             currentStep = 'post-copy-check';
-            if (!fs.existsSync(path.join(liveBasePath, 'index.html'))) {
-                throw new Error("Verification Failed: index.html is missing in live directory after copy");
+            if (!fs.existsSync(path.join(tmpLivePath, 'index.html'))) {
+                throw new Error("Verification Failed: index.html is missing after copy");
             }
             await deploymentService.addDeploymentLog(deploymentId, "Verification", "success", "Post-copy verification passed");
+
+            // Fast Swap to Live Directory to minimize downtime
+            currentStep = 'swap-directories';
+            const backupPath = liveBasePath + '_backup';
+            if (fs.existsSync(liveBasePath)) {
+                if (fs.existsSync(backupPath)) fs.rmSync(backupPath, { recursive: true, force: true });
+                fs.renameSync(liveBasePath, backupPath);
+            }
+            fs.renameSync(tmpLivePath, liveBasePath);
+            await deploymentService.addDeploymentLog(deploymentId, "Swap", "success", "Live directory updated successfully");
 
             // Ensure Nginx directories exist (mostly for local Windows mock)
             if (isWindows) {
@@ -147,6 +154,12 @@ server {
                 // Ignore cleanup errors
             }
 
+            // Delete backup if successful
+            const backupPath = liveBasePath + '_backup';
+            if (fs.existsSync(backupPath)) {
+                fs.rmSync(backupPath, { recursive: true, force: true });
+            }
+
             // Note: Since this is static, we don't have a pm2_process, allocated_port, or last_error
             await websiteService.updateWebsiteDeploymentData(websiteId, {
                 status: 'running',
@@ -172,16 +185,20 @@ server {
             await deploymentService.addDeploymentLog(deploymentId, "Rollback", "pending", `Initiating rollback due to failure at step: ${currentStep}`);
             
             try {
-                if (fs.existsSync(liveBasePath)) {
-                    fs.rmSync(liveBasePath, { recursive: true, force: true });
+                // Restore backup if it exists (meaning it was a redeploy)
+                const backupPath = liveBasePath + '_backup';
+                if (fs.existsSync(backupPath)) {
+                    if (fs.existsSync(liveBasePath)) fs.rmSync(liveBasePath, { recursive: true, force: true });
+                    fs.renameSync(backupPath, liveBasePath);
+                    await deploymentService.addDeploymentLog(deploymentId, "Rollback", "success", "Rollback completed. Restored previous working application.");
+                } else {
+                    // Fresh deploy: wipe everything
+                    if (fs.existsSync(symlinkPath)) fs.unlinkSync(symlinkPath);
+                    if (fs.existsSync(configPath)) fs.unlinkSync(configPath);
+                    if (fs.existsSync(liveBasePath)) fs.rmSync(liveBasePath, { recursive: true, force: true });
+                    if (!isWindows) await exec('systemctl reload nginx').catch(() => {});
+                    await deploymentService.addDeploymentLog(deploymentId, "Rollback", "success", "Rollback completed. Cleaned up failed fresh install.");
                 }
-                if (fs.existsSync(symlinkPath)) {
-                    fs.unlinkSync(symlinkPath);
-                }
-                if (fs.existsSync(configPath)) {
-                    fs.unlinkSync(configPath);
-                }
-                await deploymentService.addDeploymentLog(deploymentId, "Rollback", "success", "Rollback completed. Cleaned up files and configs.");
             } catch (rollbackErr) {
                 await deploymentService.addDeploymentLog(deploymentId, "Rollback Error", "failed", `Rollback failed: ${rollbackErr.message}`);
             }

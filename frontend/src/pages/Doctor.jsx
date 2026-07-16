@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import api from '../utils/api';
+import { fetchApi } from '../utils/api';
 import { RefreshCw, Activity, Database, Server, HardDrive, Cpu, Shield, Key, GitCommit, FileCode, Monitor } from 'lucide-react';
 
 export default function Doctor({ token }) {
@@ -11,12 +11,10 @@ export default function Doctor({ token }) {
     setLoading(true);
     setError('');
     try {
-      const response = await api.get('/health/doctor', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setData(response.data);
+      const response = await fetchApi('/health/doctor', {}, token);
+      setData(response);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch health data');
+      setError(err.message || 'Failed to fetch health data');
     } finally {
       setLoading(false);
     }
