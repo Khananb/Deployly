@@ -15,11 +15,6 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
   const [newDomain, setNewDomain] = useState('');
   const [addingDomain, setAddingDomain] = useState(false);
   
-  const [showEngineModal, setShowEngineModal] = useState(false);
-  const [pendingDeploymentId, setPendingDeploymentId] = useState(null);
-  const [selectedEngine, setSelectedEngine] = useState('node');
-  const [resumingDeployment, setResumingDeployment] = useState(false);
-
   const { addToast } = useToast();
   const pollInterval = useRef(null);
 
@@ -60,7 +55,7 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
       loadLogs(selectedDeployment);
       
       const dep = deployments.find(d => d.id === selectedDeployment);
-      const isActive = dep && ['deploying', 'pending', 'uploaded', 'validating'].includes(dep.status);
+      const isActive = dep && ['deploying', 'pending', 'uploaded', 'validating', 'PENDING', 'PREPARING', 'BUILDING', 'DEPLOYING', 'VERIFYING'].includes(dep.status);
       
       if (isActive) {
         if (!pollInterval.current) {
@@ -114,10 +109,11 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
   };
 
   const handleUploadSuccess = (data) => {
-    if (data && data.status === 'unknown_engine') {
-        addToast('Project engine could not be detected. Please select manually.', 'warning');
-        setPendingDeploymentId(data.deploymentId);
-        setShowEngineModal(true);
+    if (data && data.status === 'failed') {
+        addToast(data.message || 'Deployment couldn\'t start.', 'error');
+        if (data.deploymentId) {
+            setSelectedDeployment(data.deploymentId);
+        }
     } else {
         addToast('ZIP uploaded successfully. Deploying...', 'success');
         if (data && data.deploymentId) {
@@ -125,27 +121,6 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
         }
     }
     loadData();
-  };
-
-  const handleResumeDeployment = async () => {
-      setResumingDeployment(true);
-      try {
-          // Update the website type
-          await fetchApi(`/websites/${websiteId}`, {
-              method: 'PATCH',
-              body: JSON.stringify({ type: selectedEngine })
-          }, token);
-          
-          // Trigger the deployment with the new engine
-          await handleDeploy(pendingDeploymentId);
-          
-          setShowEngineModal(false);
-          setPendingDeploymentId(null);
-      } catch (err) {
-          addToast(err.message, 'error');
-      } finally {
-          setResumingDeployment(false);
-      }
   };
 
   const handleAddDomain = async (e) => {
@@ -199,18 +174,18 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
   if (!website) return <div>Failed to load website.</div>;
 
   const renderStatusBadge = (status) => {
-    const s = status || 'pending';
+    const s = (status || 'pending').toLowerCase();
     let badgeClass = 'pending';
-    if (s === 'running' || s === 'deployed') badgeClass = 'active';
+    if (s === 'running' || s === 'deployed' || s === 'success') badgeClass = 'active';
     else if (s === 'failed') badgeClass = 'danger';
-    else if (s === 'ready') badgeClass = 'accent';
-    else if (s === 'deploying') badgeClass = 'warning';
+    else if (s === 'ready' || s === 'verifying') badgeClass = 'accent';
+    else if (s === 'deploying' || s === 'building' || s === 'preparing') badgeClass = 'warning';
     
-    return <span className={`badge badge-${badgeClass}`}>{s.toUpperCase()}</span>;
+    return <span className={`badge badge-${badgeClass}`}>{status.toUpperCase()}</span>;
   };
 
   const activeDep = deployments.find(d => d.id === selectedDeployment);
-  const isAnyDeploying = deployments.some(d => ['pending', 'uploaded', 'validating', 'deploying'].includes(d.status));
+  const isAnyDeploying = deployments.some(d => ['pending', 'uploaded', 'validating', 'deploying', 'PENDING', 'PREPARING', 'BUILDING', 'DEPLOYING', 'VERIFYING'].includes(d.status));
 
   return (
     <div>
@@ -244,36 +219,7 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
         </div>
       </div>
 
-      {showEngineModal && (
-        <div className="modal-backdrop">
-          <div className="modal-content">
-            <h3 style={{ marginTop: 0 }}>Select Project Engine</h3>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.95rem' }}>
-              We couldn't automatically detect your project's framework. Please select the correct engine to continue deployment.
-            </p>
-            <div className="form-group">
-              <label>Engine Type</label>
-              <select 
-                value={selectedEngine} 
-                onChange={e => setSelectedEngine(e.target.value)}
-                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
-              >
-                <option value="node">Node.js (Next.js, Express, Nuxt, etc)</option>
-                <option value="static">Static HTML (React/Vite Export, HTML/CSS)</option>
-                <option value="php">PHP (Laravel, WordPress, Raw PHP)</option>
-              </select>
-            </div>
-            <div className="flex gap-3 justify-end" style={{ marginTop: '2rem' }}>
-              <button className="btn btn-secondary" onClick={() => setShowEngineModal(false)} disabled={resumingDeployment}>
-                Cancel
-              </button>
-              <button className="btn btn-primary" onClick={handleResumeDeployment} disabled={resumingDeployment}>
-                {resumingDeployment ? 'Starting...' : 'Continue Deployment'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       <div className="grid details-grid" style={{ gridTemplateColumns: '1fr 2fr', gap: '2rem' }}>
         
@@ -417,9 +363,29 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
                     <h3 style={{ fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <Terminal size={18} /> Build Logs {selectedDeployment ? `(#${selectedDeployment})` : ''}
                     </h3>
-                    {activeDep && ['pending', 'uploaded', 'validating', 'deploying'].includes(activeDep.status) && (
-                        <span className="spinner spinner-sm"></span>
-                    )}
+                    <div className="flex gap-2 items-center">
+                        {activeDep && ['pending', 'uploaded', 'validating', 'deploying', 'PENDING', 'PREPARING', 'BUILDING', 'DEPLOYING', 'VERIFYING'].includes(activeDep.status) && (
+                            <span className="spinner spinner-sm"></span>
+                        )}
+                        {selectedDeployment && logs.length > 0 && (
+                            <button 
+                                onClick={() => {
+                                    const logText = logs.map(l => `[${new Date(l.created_at || l.timestamp).toISOString()}] [${l.action}] ${l.message || l.status}`).join('\n');
+                                    const blob = new Blob([logText], { type: 'text/plain' });
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `deployment-${selectedDeployment}-logs.txt`;
+                                    a.click();
+                                    URL.revokeObjectURL(url);
+                                }}
+                                className="btn btn-secondary"
+                                style={{ padding: '0.25rem 0.75rem', fontSize: '0.85rem' }}
+                            >
+                                Download Logs
+                            </button>
+                        )}
+                    </div>
                 </div>
                 
                 <div style={{ 

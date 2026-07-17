@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS deployments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     website_id INT NOT NULL,
     filename VARCHAR(255) NOT NULL,
-    status ENUM('pending', 'uploading', 'uploaded', 'validating', 'deploying', 'installing', 'starting', 'running', 'failed', 'stopping', 'stopped', 'ready', 'deployed') NOT NULL DEFAULT 'pending',
+    status ENUM('PENDING', 'PREPARING', 'BUILDING', 'DEPLOYING', 'VERIFYING', 'SUCCESS', 'FAILED', 'pending', 'uploading', 'uploaded', 'validating', 'deploying', 'installing', 'starting', 'running', 'failed', 'stopping', 'stopped', 'ready', 'deployed') NOT NULL DEFAULT 'PENDING',
     upload_path VARCHAR(255) NULL,
     extract_path VARCHAR(255) NULL,
     deploy_path VARCHAR(255) NULL,

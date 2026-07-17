@@ -18,7 +18,7 @@ const getDeploymentById = async (deploymentId) => {
 
 const getActiveDeployments = async (websiteId) => {
     const [rows] = await db.execute(
-        "SELECT id, status FROM deployments WHERE website_id = ? AND status IN ('pending', 'uploaded', 'validating', 'ready', 'deploying', 'running')",
+        "SELECT id, status FROM deployments WHERE website_id = ? AND status IN ('PENDING', 'PREPARING', 'BUILDING', 'DEPLOYING', 'VERIFYING', 'pending', 'uploaded', 'validating', 'ready', 'deploying', 'running')",
         [websiteId]
     );
     return rows;

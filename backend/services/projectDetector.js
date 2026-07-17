@@ -33,76 +33,50 @@ class ProjectDetector {
 
         const hasPackageJson = hasFile('package.json');
         const hasComposerJson = hasFile('composer.json');
-        const hasWpConfig = hasFile('wp-config.php') || hasFile('wp-content');
-        const hasIndexHtml = hasFile('index.html');
 
+        // Detection order: vite.config.js -> next.config.js -> package.json -> composer.json -> artisan -> server.js -> app.js -> index.html -> public/index.html
+        if (hasFilePattern(/^vite\.config\./)) return { projectType: 'node', framework: 'REACT_VITE', ready: true, confidence: 'high' };
+        if (hasFilePattern(/^next\.config\./)) return { projectType: 'node', framework: 'NEXTJS', ready: true, confidence: 'high' };
+        
         if (hasPackageJson) {
-            // Node-based projects
             let packageData = {};
             try {
                 const pkgString = fs.readFileSync(path.join(searchPath, 'package.json'), 'utf8');
                 packageData = JSON.parse(pkgString);
             } catch (e) {
-                // Ignore parse errors, proceed with structural checks
+                // Ignore parse errors
             }
+            const dependencies = { ...packageData.dependencies, ...packageData.devDependencies };
             
-            const dependencies = {
-                ...packageData.dependencies,
-                ...packageData.devDependencies
-            };
-
-            // Angular
-            if (hasFile('angular.json')) {
-                return { projectType: 'node', framework: 'ANGULAR', ready: true };
-            }
-
-            // Nuxt
-            if (hasFilePattern(/^nuxt\.config\./)) {
-                return { projectType: 'node', framework: 'NUXT', ready: true };
-            }
-
-            // Svelte
-            if (hasFilePattern(/^svelte\.config\./)) {
-                return { projectType: 'node', framework: 'SVELTE', ready: true };
-            }
-
-            // Remix
-            if (hasFilePattern(/^remix\.config\./) || (hasFilePattern(/^vite\.config\./) && dependencies['@remix-run/react'])) {
-                return { projectType: 'node', framework: 'REMIX', ready: true };
-            }
-
-            // Astro
-            if (hasFilePattern(/^astro\.config\./)) {
-                return { projectType: 'node', framework: 'ASTRO', ready: true };
-            }
-
-            // React/Vite
-            if (hasFilePattern(/^vite\.config\./)) {
-                return { projectType: 'node', framework: 'REACT_VITE', ready: true };
-            }
-
-            // Next.js
-            if (hasFilePattern(/^next\.config\./)) {
-                return { projectType: 'node', framework: 'NEXTJS', ready: true };
-            }
-
-            // Generic Node
-            return { projectType: 'node', framework: 'NODE', ready: true };
+            if (dependencies['react-scripts']) return { projectType: 'node', framework: 'REACT_CRA', ready: true, confidence: 'high' };
+            if (dependencies['express']) return { projectType: 'node', framework: 'EXPRESS', ready: true, confidence: 'high' };
+            
+            // If it has package.json but no specific framework, it's generic Node
+            return { projectType: 'node', framework: 'NODE', ready: true, confidence: 'high' };
         }
 
-        if (hasWpConfig) {
-            return { projectType: 'php', framework: 'WORDPRESS', ready: true };
+        if (hasComposerJson) {
+            if (hasFile('artisan')) return { projectType: 'php', framework: 'LARAVEL', ready: true, confidence: 'high' };
+            return { projectType: 'php', framework: 'PHP', ready: true, confidence: 'high' };
         }
 
-        if (hasComposerJson || hasFilePattern(/\.php$/)) {
-            return { projectType: 'php', framework: 'PHP', ready: true };
+        if (hasFile('artisan')) {
+            return { projectType: 'php', framework: 'LARAVEL', ready: true, confidence: 'high' };
         }
 
-        if (hasIndexHtml) {
-            return { projectType: 'static', framework: 'HTML', ready: true };
+        if (hasFile('server.js') || hasFile('app.js')) {
+            return { projectType: 'node', framework: 'NODE', ready: true, confidence: 'high' };
         }
 
-        return { projectType: 'unknown', framework: 'UNKNOWN', ready: true }; // Allow unknown to deploy static or fail gracefully
+        if (hasFile('index.html')) {
+            return { projectType: 'static', framework: 'HTML', ready: true, confidence: 'high' };
+        }
+        
+        if (hasFile(path.join('public', 'index.html'))) {
+            return { projectType: 'static', framework: 'HTML', ready: true, confidence: 'high' };
+        }
+
+        return { projectType: 'unsupported', framework: 'UNSUPPORTED', ready: true, confidence: 'none' };
     }
 }
 

@@ -14,9 +14,24 @@ mkdir -p "$BACKUP_DIR"
 
 echo "Starting backup to $BACKUP_DIR..."
 
+# Source .env for database credentials
+if [ -f "${PROJECT_ROOT}/backend/.env" ]; then
+    set -a
+    source "${PROJECT_ROOT}/backend/.env"
+    set +a
+fi
+
+DB_USER="${DB_USER:-root}"
+DB_PASSWORD="${DB_PASSWORD:-}"
+DB_NAME="${DB_NAME:-deployly}"
+
 # 1. MariaDB
 echo "Backing up database..."
-mysqldump -u root -pdeployly deployly > "$BACKUP_DIR/database.sql" || { echo "Database backup failed"; exit 1; }
+if [ -n "$DB_PASSWORD" ]; then
+    mysqldump -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" > "$BACKUP_DIR/database.sql" || { echo "Database backup failed"; exit 1; }
+else
+    mysqldump -u "$DB_USER" "$DB_NAME" > "$BACKUP_DIR/database.sql" || { echo "Database backup failed"; exit 1; }
+fi
 
 # 2. Website files
 echo "Backing up website files..."
