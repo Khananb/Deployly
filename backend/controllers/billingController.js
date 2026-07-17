@@ -10,10 +10,15 @@ const websiteService = require('../services/websiteService');
 
 let razorpayInstance;
 if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+    if (!process.env.RAZORPAY_WEBHOOK_SECRET) {
+        console.warn("[Billing Warning] RAZORPAY_WEBHOOK_SECRET is missing. Webhooks will fail.");
+    }
     razorpayInstance = new Razorpay({
         key_id: process.env.RAZORPAY_KEY_ID,
         key_secret: process.env.RAZORPAY_KEY_SECRET,
     });
+} else {
+    console.warn("[Billing Warning] Razorpay keys are missing. Billing features are disabled and will fail gracefully.");
 }
 
 // 1. Get Billing Status
@@ -65,7 +70,10 @@ const upgradePlan = asyncHandler(async (req, res) => {
     const userEmail = req.user.email;
 
     if (!razorpayInstance) {
-        throw new Error("Razorpay is not configured");
+        return res.status(503).json({
+            success: false,
+            message: "Billing is currently disabled on this instance. Please contact the administrator."
+        });
     }
 
     // MVP: Flat pricing of 500 INR for 30 days

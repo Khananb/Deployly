@@ -42,7 +42,7 @@ const transportOptions = {
     datePattern: 'YYYY-MM-DD',
     zippedArchive: true,
     maxSize: '20m',
-    maxFiles: '14d' // Keep for 14 days
+    maxFiles: '30d' // Keep for 30 days
 };
 
 const logger = winston.createLogger({
@@ -65,12 +65,12 @@ const logger = winston.createLogger({
             ...transportOptions
         }),
         new DailyRotateFile({
-            filename: path.join(logDir, 'access-%DATE%.log'),
+            filename: path.join(logDir, 'warn-%DATE%.log'),
+            level: 'warn',
             ...transportOptions
         }),
-        // We can add a separate deployment logger if needed, but for now we'll route it based on metadata
         new DailyRotateFile({
-            filename: path.join(logDir, 'deployment-%DATE%.log'),
+            filename: path.join(logDir, 'info-%DATE%.log'),
             level: 'info',
             ...transportOptions
         })

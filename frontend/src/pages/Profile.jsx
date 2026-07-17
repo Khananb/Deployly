@@ -8,7 +8,7 @@ export default function Profile({ token, user, onLogout }) {
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const data = await fetchApi('/auth/profile', {}, token);
+        const data = await fetchApi('/profile', {}, token);
         setProfile(data.data.user);
       } catch (err) {
         setError(err.message);

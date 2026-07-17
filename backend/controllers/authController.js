@@ -28,9 +28,11 @@ const register = asyncHandler(async (req, res) => {
 
         sendSuccess(res, {}, "User registered successfully", 201);
     } catch (error) {
-        console.error("REGISTER ERROR:", error);
-        console.error(error.message);
-        console.error(error.stack);
+        if (error.statusCode === 400 || error.message.includes('already registered')) {
+            console.warn(`[Register Warning] ${error.message}`);
+        } else {
+            console.error(`[Register Error] ${error.message}`);
+        }
         throw error;
     }
 });
@@ -70,18 +72,19 @@ const googleLogin = asyncHandler(async (req, res) => {
     try {
         decodedToken = await getAuth().verifyIdToken(idToken);
     } catch (firebaseErr) {
+        let message = "Google authentication failed";
+        if (firebaseErr.code === 'auth/id-token-expired') {
+            message = "Google Token has expired. Please log in again.";
+        } else if (firebaseErr.code === 'auth/argument-error' || firebaseErr.code === 'auth/invalid-id-token' || firebaseErr.code === 'auth/invalid-argument') {
+            message = "Invalid Google Token provided.";
+        } else {
+            console.warn(`[Google Login Warning] ${firebaseErr.code}: ${firebaseErr.message}`);
+        }
 
-    console.error("========== FIREBASE ERROR ==========");
-    console.error(firebaseErr);
-    console.error(firebaseErr.message);
-    console.error(firebaseErr.code);
-    console.error(firebaseErr.stack);
-    console.error("===================================");
-
-    const err = new Error("Invalid or expired Google Token");
-    err.statusCode = 401;
-    throw err;
-}
+        const err = new Error(message);
+        err.statusCode = 401;
+        throw err;
+    }
 
     const { email, name, picture, email_verified, uid } = decodedToken;
     if (!email) {

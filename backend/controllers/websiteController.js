@@ -4,13 +4,13 @@ const websiteService = require("../services/websiteService");
 const { sendSuccess } = require("../utils/apiResponse");
 
 const websiteSchema = Joi.object({
-    name: Joi.string().required(),
+    name: Joi.string().max(255).required(),
     domain: Joi.string().domain().required(),
     type: Joi.string().valid('node', 'php', 'static', 'unknown').default('unknown')
 });
 
 const updateWebsiteSchema = Joi.object({
-    name: Joi.string().optional(),
+    name: Joi.string().max(255).optional(),
     domain: Joi.string().domain().optional()
 }).min(1);
 
@@ -111,6 +111,15 @@ const deleteWebsite = asyncHandler(async (req, res) => {
     const userId = req.user.id;
     const website = await websiteService.getWebsiteById(userId, id);
     
+    // Prevent deletion during active deployment to avoid zombie PM2 processes and orphan files
+    const deploymentService = require("../services/deploymentService");
+    const activeDeployments = await deploymentService.getActiveDeployments(id);
+    if (activeDeployments.length > 0) {
+        const err = new Error("Cannot delete website while a deployment is in progress. Please wait for the deployment to finish.");
+        err.statusCode = 409;
+        throw err;
+    }
+    
     // Stop and Delete PM2 process
     if (website.pm2_process) {
         await pm2Helper.stopProcess(website.pm2_process).catch(() => {});
@@ -122,14 +131,17 @@ const deleteWebsite = asyncHandler(async (req, res) => {
         }
     }
 
-    // Delete files
     const sitesPath = path.join(__dirname, "../../storage/sites", String(userId), String(id));
     const uploadsPath = path.join(__dirname, "../../storage/uploads", String(userId), String(id));
     const livePath = path.join(__dirname, "../../storage/live", String(userId), String(id));
+    const tmpLivePath = path.join(__dirname, "../../storage/live", String(userId), `${id}_tmp`);
+    const backupLivePath = path.join(__dirname, "../../storage/live", String(userId), `${id}_backup`);
     
     if (fs.existsSync(sitesPath)) fs.rmSync(sitesPath, { recursive: true, force: true });
     if (fs.existsSync(uploadsPath)) fs.rmSync(uploadsPath, { recursive: true, force: true });
     if (fs.existsSync(livePath)) fs.rmSync(livePath, { recursive: true, force: true });
+    if (fs.existsSync(tmpLivePath)) fs.rmSync(tmpLivePath, { recursive: true, force: true });
+    if (fs.existsSync(backupLivePath)) fs.rmSync(backupLivePath, { recursive: true, force: true });
 
     // Delete Nginx config
     const isWindows = process.platform === 'win32';

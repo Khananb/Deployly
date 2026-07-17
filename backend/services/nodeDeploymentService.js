@@ -70,7 +70,8 @@ class NodeDeploymentService {
                 try {
                     await exec('npm install --no-fund --no-audit --loglevel=error', { 
                         cwd: tmpLivePath,
-                        maxBuffer: 1024 * 1024 * 50 // 50MB
+                        maxBuffer: 1024 * 1024 * 50, // 50MB
+                        timeout: 300000 // 5 minutes timeout to prevent deadlocks
                     });
                     await deploymentService.addDeploymentLog(deploymentId, "NPM", "success", "Dependencies installed successfully");
                 } catch (npmErr) {
@@ -141,7 +142,11 @@ class NodeDeploymentService {
 
             await exec(pm2Cmd, { 
                 cwd: liveBasePath,
-                env: { ...process.env, PORT: allocatedPort } 
+                env: { 
+                    PATH: process.env.PATH,
+                    NODE_ENV: 'production',
+                    PORT: allocatedPort 
+                } 
             });
             
             // Save the process explicitly
@@ -294,8 +299,11 @@ server {
                 // Delete NEW PM2 process
                 await exec(`pm2 delete ${pm2AppName}`).catch(() => {});
                 
-                // Release NEW Port
-                if (allocatedPort) {
+                // Restore OLD port if it existed, otherwise release NEW port
+                if (website.allocated_port) {
+                    const db = require('../config/db');
+                    await db.execute("UPDATE websites SET allocated_port = ? WHERE id = ?", [website.allocated_port, websiteId]);
+                } else if (allocatedPort) {
                     await portManagerService.releasePort(websiteId).catch(() => {});
                 }
 
@@ -322,6 +330,9 @@ server {
             await deploymentService.updateDeploymentStatus(deploymentId, 'failed');
             await websiteService.updateWebsiteDeploymentData(websiteId, {
                 status: 'failed',
+                allocated_port: website.allocated_port || null,
+                pm2_process: website.pm2_process || null,
+                live_url: website.live_url || null,
                 last_error: err.message
             });
 

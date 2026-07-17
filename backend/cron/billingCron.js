@@ -6,9 +6,9 @@ const fs = require('fs');
 const path = require('path');
 
 const runBillingCron = () => {
-    // Run every hour
-    cron.schedule('0 * * * *', async () => {
-        console.log("[Billing Cron] Running hourly check...");
+    // Run daily at midnight
+    cron.schedule('0 0 * * *', async () => {
+        console.log("[Billing Cron] Running daily check...");
         
         try {
             const now = new Date();

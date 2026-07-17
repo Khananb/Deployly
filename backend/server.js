@@ -24,6 +24,7 @@ const errorMiddleware = require("./middleware/errorMiddleware");
 const runBillingCron = require("./cron/billingCron");
 
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy (e.g. Nginx) to correctly resolve client IP
 
 // Security and utility middleware
 app.use(helmet());
@@ -70,8 +71,11 @@ app.use("/sites", express.static(path.join(__dirname, "../storage/sites"), {
 // Error handling middleware
 app.use(errorMiddleware);
 
+const runSSLCron = require("./cron/sslCron");
+
 // Start Cron Jobs
 runBillingCron();
+runSSLCron();
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {

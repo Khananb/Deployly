@@ -40,6 +40,7 @@ const updateDNSStatus = async (id, userId, status) => {
     return result.affectedRows > 0;
 };
 
+
 const updateSSLStatus = async (id, userId, status) => {
     const [result] = await db.execute(
         "UPDATE domains SET ssl_status = ? WHERE id = ? AND user_id = ?",

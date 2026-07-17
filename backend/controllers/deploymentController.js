@@ -35,8 +35,8 @@ const deployWebsite = asyncHandler(async (req, res) => {
         throw err;
     }
     
-    if (deployment.status !== 'ready') {
-        const err = new Error("Deployment must be in 'ready' status to deploy");
+    if (!['ready', 'deployed', 'failed'].includes(deployment.status)) {
+        const err = new Error("Deployment must be in 'ready', 'deployed', or 'failed' status to be manually deployed");
         err.statusCode = 400;
         throw err;
     }
@@ -44,7 +44,7 @@ const deployWebsite = asyncHandler(async (req, res) => {
     const extractPath = deployment.extract_path || path.join(__dirname, "../../storage/sites", String(userId), String(websiteId));
     if (!fs.existsSync(extractPath)) {
         await deploymentService.updateDeploymentStatus(deploymentId, 'failed');
-        await websiteService.updateWebsite(userId, websiteId, website.name, 'failed');
+        await websiteService.updateWebsiteDeploymentData(websiteId, { status: 'failed' });
         throw new Error("Extracted source files not found. Upload may have failed.");
     }
 
@@ -73,7 +73,7 @@ const deployWebsite = asyncHandler(async (req, res) => {
             console.error("Manual deployment error:", err);
             // Error handling is already done inside the specific deployment services (they update status to failed)
         }
-    })();
+    })().catch(err => console.error("Unhandled manual deployment error:", err));
 
     sendSuccess(res, {
         deploymentStatus: 'deploying',

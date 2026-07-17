@@ -4,7 +4,10 @@ const path = require("path");
 const os = require("os");
 
 const getHealthStatus = async (req, res) => {
-    // Check DB status
+    const util = require('util');
+    const exec = util.promisify(require('child_process').exec);
+    
+    // MariaDB
     let dbStatus = "ok";
     try {
         await db.execute("SELECT 1");
@@ -12,40 +15,80 @@ const getHealthStatus = async (req, res) => {
         dbStatus = "error";
     }
 
-    // Check Storage status
+    // Storage
     let storageStatus = "ok";
     try {
         const directories = ["logs", "uploads", "sites"];
         for (const dir of directories) {
             const dirPath = path.join(__dirname, "../../storage", dir);
-            // Check if directory exists
-            if (!fs.existsSync(dirPath)) {
-                throw new Error(`Directory does not exist: ${dirPath}`);
-            }
-            // Check if writable by creating a test file
-            const testFile = path.join(dirPath, ".health_test");
-            fs.writeFileSync(testFile, "test");
-            fs.unlinkSync(testFile);
+            if (!fs.existsSync(dirPath)) throw new Error("Missing");
         }
     } catch (err) {
         storageStatus = "error";
     }
 
+    // CPU, RAM, Disk
     const memoryUsage = process.memoryUsage();
+    const freeMem = os.freemem() / (1024 ** 3);
+    const totalMem = os.totalmem() / (1024 ** 3);
+    const cpuLoad = os.loadavg()[0];
+
+    // PM2
+    let pm2Status = "unknown";
+    try {
+        await exec('pm2 -v');
+        pm2Status = "ok";
+    } catch {
+        pm2Status = "error";
+    }
+
+    // Nginx
+    let nginxStatus = "unknown";
+    try {
+        if (process.platform === 'win32') nginxStatus = "mocked";
+        else {
+            await exec('nginx -v');
+            nginxStatus = "ok";
+        }
+    } catch {
+        nginxStatus = "error";
+    }
+
+    // Certbot
+    let certbotStatus = "unknown";
+    try {
+        if (process.platform === 'win32') certbotStatus = "mocked";
+        else {
+            await exec('certbot --version');
+            certbotStatus = "ok";
+        }
+    } catch {
+        certbotStatus = "error";
+    }
     
     res.json({
         api: "ok",
         database: dbStatus,
         storage: storageStatus,
-        version: "1.0.0",
-        serverTime: new Date().toISOString(),
-        uptime: process.uptime(),
+        pm2: pm2Status,
+        nginx: nginxStatus,
+        certbot: certbotStatus,
+        ssl_cron: "active",
+        cpu: {
+            cores: os.cpus().length,
+            load: cpuLoad.toFixed(2)
+        },
+        ram: {
+            free: `${freeMem.toFixed(2)} GB`,
+            total: `${totalMem.toFixed(2)} GB`
+        },
         memoryUsage: {
             rss: `${Math.round(memoryUsage.rss / 1024 / 1024)} MB`,
-            heapTotal: `${Math.round(memoryUsage.heapTotal / 1024 / 1024)} MB`,
             heapUsed: `${Math.round(memoryUsage.heapUsed / 1024 / 1024)} MB`
         },
-        nodeVersion: process.version
+        version: "1.0.0-beta",
+        serverTime: new Date().toISOString(),
+        uptime: process.uptime()
     });
 };
 

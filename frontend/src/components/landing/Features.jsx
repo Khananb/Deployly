@@ -4,7 +4,7 @@ import { Rocket, Shield, Globe, Terminal, Server, Database, Folder, RotateCw } f
 export default function Features() {
   const features = [
     { title: "One Click Deploy", desc: "Upload your ZIP file and go live instantly without configuring servers.", icon: <Rocket size={20} color="var(--accent)" /> },
-    { title: "Free SSL", desc: "Automated HTTPS provisioning for every custom domain you connect.", icon: <Shield size={20} color="var(--accent)" /> },
+    { title: "Coming Soon", desc: "Automated HTTPS provisioning for every custom domain you connect.", icon: <Shield size={20} color="var(--accent)" /> },
     { title: "Custom Domains", desc: "Easily point your own domain names to your deployed applications.", icon: <Globe size={20} color="var(--accent)" /> },
     { title: "Node.js Hosting", desc: "PM2-powered isolated environments for your modern JavaScript backends.", icon: <Terminal size={20} color="var(--accent)" /> },
     { title: "PHP Hosting", desc: "Optimized runtime for traditional PHP monoliths and CMS platforms.", icon: <Server size={20} color="var(--accent)" /> },

@@ -30,28 +30,39 @@ const isPortInUse = (port) => {
  * Ensures the port is neither bound on the host nor assigned in the database.
  */
 const allocatePort = async (websiteId) => {
-    // 1. Get all currently assigned ports from DB
-    const [rows] = await db.execute("SELECT allocated_port FROM websites WHERE allocated_port IS NOT NULL FOR UPDATE");
-    const assignedPorts = new Set(rows.map(row => row.allocated_port));
-    
-    let port = 4001; // Base starting port for user applications
-    const MAX_PORT = 10000;
-    
-    while (port <= MAX_PORT) {
-        // 2. Check if DB has it
-        if (!assignedPorts.has(port)) {
-            // 3. Check if OS has it bound (just to be safe against zombie processes or external apps)
-            const inUse = await isPortInUse(port);
-            if (!inUse) {
-                // 4. Reserve immediately in DB to prevent concurrent race conditions
-                await db.execute("UPDATE websites SET allocated_port = ? WHERE id = ?", [port, websiteId]);
-                return port;
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        
+        // 1. Get all currently assigned ports from DB (Locked by transaction)
+        const [rows] = await connection.execute("SELECT allocated_port FROM websites WHERE allocated_port IS NOT NULL FOR UPDATE");
+        const assignedPorts = new Set(rows.map(row => row.allocated_port));
+        
+        let port = 4001; // Base starting port for user applications
+        const MAX_PORT = 10000;
+        
+        while (port <= MAX_PORT) {
+            // 2. Check if DB has it
+            if (!assignedPorts.has(port)) {
+                // 3. Check if OS has it bound (just to be safe against zombie processes or external apps)
+                const inUse = await isPortInUse(port);
+                if (!inUse) {
+                    // 4. Reserve immediately in DB to prevent concurrent race conditions
+                    await connection.execute("UPDATE websites SET allocated_port = ? WHERE id = ?", [port, websiteId]);
+                    await connection.commit();
+                    return port;
+                }
             }
+            port++;
         }
-        port++;
+        
+        throw new Error("No available ports in the allocation range (4001-10000)");
+    } catch (err) {
+        await connection.rollback();
+        throw err;
+    } finally {
+        connection.release();
     }
-    
-    throw new Error("No available ports in the allocation range (4001-10000)");
 };
 
 /**

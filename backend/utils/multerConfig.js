@@ -4,8 +4,12 @@ const path = require("path");
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const { id: websiteId } = req.params;
-        const userId = req.user.id;
+        const websiteId = parseInt(req.params.id, 10);
+        const userId = parseInt(req.user.id, 10);
+        
+        if (isNaN(websiteId) || isNaN(userId)) {
+            return cb(new Error("Invalid ID for upload path"));
+        }
         
         const uploadPath = path.join(__dirname, "../../storage/uploads", String(userId), String(websiteId));
         

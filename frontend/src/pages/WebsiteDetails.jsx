@@ -348,9 +348,8 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
                                     </span>
                                     <span>|</span>
                                     <span style={{ color: d.ssl_status === 'issued' ? 'var(--success)' : d.ssl_status === 'failed' ? 'var(--danger)' : d.ssl_status === 'pending' ? 'var(--warning)' : 'var(--text-secondary)' }}>
-                                        SSL: {d.ssl_status}
-                                    </span>
-                                </div>
+                                        SSL: {d.ssl_status || 'disabled'}
+                                    </span>                                </div>
                             </div>
                             <button onClick={() => handleDeleteDomain(d.id)} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'var(--danger)', border: 'none' }}>
                                 <Trash2 size={16} />

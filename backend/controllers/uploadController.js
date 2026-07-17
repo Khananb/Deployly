@@ -123,10 +123,14 @@ const uploadWebsiteZip = asyncHandler(async (req, res) => {
                         await deploymentService.updateDeploymentStatus(deploymentId, 'deployed');
                     }
                 } catch (deployErr) {
-                    await deploymentService.updateDeploymentStatus(deploymentId, 'failed');
-                    await deploymentService.addDeploymentLog(deploymentId, "Auto-Deploy", "failed", deployErr.message);
+                    try {
+                        await deploymentService.updateDeploymentStatus(deploymentId, 'failed');
+                        await deploymentService.addDeploymentLog(deploymentId, "Auto-Deploy", "failed", deployErr.message);
+                    } catch (logErr) {
+                        // Ignore log insertion errors (e.g., website was deleted)
+                    }
                 }
-            })();
+            })().catch(err => console.error("Unhandled background deployment error:", err));
 
             return sendSuccess(res, {
                 success: true,

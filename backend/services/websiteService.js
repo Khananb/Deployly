@@ -1,15 +1,50 @@
 const db = require("../config/db");
 
 const createWebsite = async (userId, name, domain, type) => {
-    // Duplicate domain check
-    const [existing] = await db.execute("SELECT id FROM websites WHERE domain = ?", [domain]);
-    if (existing.length > 0) throw new Error("Domain is already in use by another website");
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        
+        // Lock the subscription row for this user to prevent race conditions
+        const [subRows] = await connection.execute(
+            "SELECT p.website_limit, p.node_limit, p.php_limit FROM subscriptions s JOIN plans p ON s.plan_id = p.id WHERE s.user_id = ? AND s.status = 'active' FOR UPDATE",
+            [userId]
+        );
 
-    const [result] = await db.execute(
-        "INSERT INTO websites (user_id, name, domain, type, status, created_at) VALUES (?, ?, ?, ?, 'pending', NOW())",
-        [userId, name, domain, type]
-    );
-    return { id: result.insertId, name, domain, type, status: 'pending' };
+        if (subRows.length > 0) {
+            const sub = subRows[0];
+            
+            // Check website limit
+            const [websiteCount] = await connection.execute("SELECT COUNT(*) as count FROM websites WHERE user_id = ?", [userId]);
+            if (websiteCount[0].count >= sub.website_limit) throw new Error("Plan limit reached for websites.");
+            
+            // Check specific limits
+            if (type === 'node') {
+                const [nodeCount] = await connection.execute("SELECT COUNT(*) as count FROM websites WHERE user_id = ? AND type = 'node'", [userId]);
+                if (nodeCount[0].count >= sub.node_limit) throw new Error("Plan limit reached for Node.js apps.");
+            } else if (type === 'php') {
+                const [phpCount] = await connection.execute("SELECT COUNT(*) as count FROM websites WHERE user_id = ? AND type = 'php'", [userId]);
+                if (phpCount[0].count >= sub.php_limit) throw new Error("Plan limit reached for PHP apps.");
+            }
+        }
+
+        // Duplicate domain check
+        const [existing] = await connection.execute("SELECT id FROM websites WHERE domain = ?", [domain]);
+        if (existing.length > 0) throw new Error("Domain is already in use by another website");
+
+        const [result] = await connection.execute(
+            "INSERT INTO websites (user_id, name, domain, type, status, created_at) VALUES (?, ?, ?, ?, 'pending', NOW())",
+            [userId, name, domain, type]
+        );
+        
+        await connection.commit();
+        return { id: result.insertId, name, domain, type, status: 'pending' };
+    } catch (err) {
+        await connection.rollback();
+        throw err;
+    } finally {
+        connection.release();
+    }
 };
 
 const getWebsites = async (userId) => {

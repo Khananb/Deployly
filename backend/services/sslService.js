@@ -41,9 +41,16 @@ class SSLService {
         const configPath = path.join(nginxConfigDir, configFilename);
         
         let nginxConfigContent = '';
-        
         if (website.type === 'node') {
             if (!website.allocated_port) throw new Error("Node application is missing allocated port.");
+            
+            if (fs.existsSync(configPath)) {
+                let existingContent = fs.readFileSync(configPath, 'utf8');
+                existingContent = existingContent.replace(/proxy_pass http:\/\/127\.0\.0\.1:\d+;/g, `proxy_pass http://127.0.0.1:${website.allocated_port};`);
+                fs.writeFileSync(configPath, existingContent);
+                return { configPath, configFilename, nginxEnabledDir };
+            }
+            
             nginxConfigContent = `
 server {
     listen 80;
@@ -61,6 +68,11 @@ server {
 `.trim();
         } else if (website.type === 'static' || website.project_type === 'static' || website.project_type === 'unknown') {
             const liveBasePath = path.join(__dirname, '../../storage/live', String(website.user_id), String(website.id));
+            
+            if (fs.existsSync(configPath)) {
+                return { configPath, configFilename, nginxEnabledDir }; // Static path never changes
+            }
+            
             nginxConfigContent = `
 server {
     listen 80;
@@ -103,15 +115,41 @@ server {
         return symlinkPath;
     }
 
-    static async issueSSL(domainName, deploymentId) {
+    static async syncSSLExpiry(domainId, domainName) {
+        if (process.env.SSL_DEV_BYPASS === 'true' || process.platform === 'win32') return;
+        try {
+            const certPath = `/etc/letsencrypt/live/${domainName}/cert.pem`;
+            const keyPath = `/etc/letsencrypt/live/${domainName}/privkey.pem`;
+            
+            if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
+                throw new Error("Certificate or private key files missing");
+            }
+            
+            const crypto = require('crypto');
+            const cert = new crypto.X509Certificate(fs.readFileSync(certPath));
+            
+            if (!cert.checkHost(domainName)) {
+                throw new Error("Certificate domain mismatch");
+            }
+            
+            const expiryDate = new Date(cert.validTo);
+            await db.execute('UPDATE domains SET ssl_expires_at = ? WHERE id = ?', [expiryDate, domainId]);
+        } catch (err) {
+            console.error(`[SSL Sync] Validation failed for ${domainName}:`, err.message); // No path exposed
+        }
+    }
+
+    static async issueSSL(domainName, deploymentId, domainId) {
         if (process.env.SSL_DEV_BYPASS === 'true') {
             console.log(`[SSL_DEV_BYPASS] Skipping actual Certbot issuance for ${domainName}`);
+            const deploymentService = require('./deploymentService');
             await deploymentService.addDeploymentLog(deploymentId, "SSL Issued", "success", `[MOCK] SSL issued for ${domainName}`);
             return true;
         }
 
         try {
             await exec(`certbot --nginx -d ${domainName} --non-interactive --agree-tos -m admin@deployly.online --redirect --keep-until-expiring`);
+            if (domainId) await this.syncSSLExpiry(domainId, domainName);
             return true;
         } catch (e) {
             throw new Error(`Certbot failed: ${e.message}`);
@@ -140,10 +178,18 @@ server {
         }
     }
 
-    static async renewCertificate(domainId) {
-        // Implementation for future cron jobs
-        // e.g. run certbot renew
-        console.log(`Renewing certificate for domainId: ${domainId}`);
+    static async renewCertificate(domainId, domainName) {
+        if (process.env.SSL_DEV_BYPASS === 'true') {
+            console.log(`[SSL_DEV_BYPASS] Skipping actual Certbot renewal for ${domainName}`);
+            return;
+        }
+        try {
+            await exec(`certbot renew --cert-name ${domainName} --nginx --quiet`);
+            await this.syncSSLExpiry(domainId, domainName);
+            console.log(`[SSL Renewal] Successfully renewed ${domainName}`);
+        } catch (e) {
+            console.warn(`[SSL Renewal] Failed for ${domainName}:`, e.message);
+        }
     }
 
     static async revokeSSL(domainName) {
