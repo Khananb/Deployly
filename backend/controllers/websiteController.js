@@ -11,7 +11,8 @@ const websiteSchema = Joi.object({
 
 const updateWebsiteSchema = Joi.object({
     name: Joi.string().max(255).optional(),
-    domain: Joi.string().domain().optional()
+    domain: Joi.string().domain().optional(),
+    type: Joi.string().valid('node', 'php', 'static', 'unknown').optional()
 }).min(1);
 
 const createWebsite = asyncHandler(async (req, res) => {

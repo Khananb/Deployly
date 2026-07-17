@@ -57,7 +57,7 @@ app.use("/api/plans", planRoutes);
 app.get("/", (req, res) => {
     res.json({
         name: "Deployly API",
-        version: "1.0.0",
+        version: "1.0.0-beta",
         status: "Running"
     });
 });

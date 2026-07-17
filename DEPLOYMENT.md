@@ -1,4 +1,4 @@
-# Deployly Production runbook
+# Deployly Production runbook (Version 1.0.0-beta)
 
 This document details the production setup, architecture, and maintenance runbook for Deployly.
 

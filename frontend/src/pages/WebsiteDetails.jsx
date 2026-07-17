@@ -132,7 +132,7 @@ export default function WebsiteDetails({ token, websiteId, onBack }) {
       try {
           // Update the website type
           await fetchApi(`/websites/${websiteId}`, {
-              method: 'PUT',
+              method: 'PATCH',
               body: JSON.stringify({ type: selectedEngine })
           }, token);
           

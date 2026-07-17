@@ -1,37 +1,65 @@
 #!/bin/bash
 # Deployly Production Backup Script
 
-BACKUP_DIR="/var/deployly/backups/$(date +%Y-%m-%d_%H-%M-%S)"
+set -e
+
+# Auto-detect project root or allow override
+PROJECT_ROOT="${PROJECT_ROOT:-$(dirname $(dirname $(dirname $(realpath $0))))}"
+BACKUP_BASE="${PROJECT_ROOT}/backups"
+BACKUP_DIR="${BACKUP_BASE}/$(date +%Y-%m-%d_%H-%M-%S)"
+ARCHIVE_NAME="$(basename $BACKUP_DIR).tar.gz"
+ARCHIVE_PATH="${BACKUP_BASE}/${ARCHIVE_NAME}"
+
 mkdir -p "$BACKUP_DIR"
 
 echo "Starting backup to $BACKUP_DIR..."
 
 # 1. MariaDB
 echo "Backing up database..."
-mysqldump -u root -pdeployly deployly > "$BACKUP_DIR/database.sql"
+mysqldump -u root -pdeployly deployly > "$BACKUP_DIR/database.sql" || { echo "Database backup failed"; exit 1; }
 
 # 2. Website files
 echo "Backing up website files..."
 mkdir -p "$BACKUP_DIR/storage"
-cp -r /var/deployly/backend/storage/sites "$BACKUP_DIR/storage/sites"
-cp -r /var/deployly/backend/storage/live "$BACKUP_DIR/storage/live"
+if [ -d "${PROJECT_ROOT}/backend/storage/sites" ]; then
+    cp -r "${PROJECT_ROOT}/backend/storage/sites" "$BACKUP_DIR/storage/"
+fi
+if [ -d "${PROJECT_ROOT}/backend/storage/live" ]; then
+    cp -r "${PROJECT_ROOT}/backend/storage/live" "$BACKUP_DIR/storage/"
+fi
 
 # 3. Uploads
 echo "Backing up uploads..."
-cp -r /var/deployly/backend/storage/uploads "$BACKUP_DIR/storage/uploads"
+if [ -d "${PROJECT_ROOT}/backend/storage/uploads" ]; then
+    cp -r "${PROJECT_ROOT}/backend/storage/uploads" "$BACKUP_DIR/storage/"
+fi
 
 # 4. Environment files
 echo "Backing up environment files..."
-cp /var/deployly/backend/.env "$BACKUP_DIR/.env.backup"
+if [ -f "${PROJECT_ROOT}/backend/.env" ]; then
+    cp "${PROJECT_ROOT}/backend/.env" "$BACKUP_DIR/.env.backup"
+fi
 
 # 5. Nginx configs
 echo "Backing up Nginx configs..."
-cp -r /etc/nginx/sites-available "$BACKUP_DIR/nginx_sites-available"
-cp -r /etc/nginx/sites-enabled "$BACKUP_DIR/nginx_sites-enabled"
+if [ -d "/etc/nginx/sites-available" ]; then
+    cp -r /etc/nginx/sites-available "$BACKUP_DIR/nginx_sites-available"
+fi
+if [ -d "/etc/nginx/sites-enabled" ]; then
+    cp -r /etc/nginx/sites-enabled "$BACKUP_DIR/nginx_sites-enabled"
+fi
 
 # Compress backup
-cd /var/deployly/backups
-tar -czf "$(basename $BACKUP_DIR).tar.gz" "$(basename $BACKUP_DIR)"
+echo "Compressing backup..."
+cd "$BACKUP_BASE"
+tar -czf "$ARCHIVE_NAME" "$(basename $BACKUP_DIR)"
 rm -rf "$BACKUP_DIR"
 
-echo "Backup completed successfully: $(basename $BACKUP_DIR).tar.gz"
+if [ -f "$ARCHIVE_PATH" ]; then
+    echo "Backup completed successfully: $ARCHIVE_PATH"
+    exit 0
+else
+    echo "Error: Backup archive was not created."
+    exit 1
+fi
+

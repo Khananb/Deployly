@@ -1,5 +1,7 @@
+require('dotenv').config({ path: __dirname + '/../.env' });
 const axios = require('axios');
-const API_URL = 'http://localhost:4000/api';
+const PORT = process.env.PORT || 3000;
+const API_URL = `http://127.0.0.1:${PORT}/api`;
 
 async function smokeTest() {
     console.log("=== Deployly Live Smoke Test ===");
